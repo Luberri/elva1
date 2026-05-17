@@ -1,0 +1,72 @@
+Ligne;Catégorie;Module;Page;Description tâche;Type;Qui;Estimation;Temps passé;Reste à faire
+1;Backoffice;Gestion Login;Login;Création page login et route;Affichage;ETU003110;20;18;2
+2;Backoffice;Gestion Login;Login;Validation identifiants et blocage accès;Metier;ETU003110;18;16;2
+3;Backoffice;Gestion Login;Login;Appels API et gestion session;Intégration;ETU003110;22;20;2
+4;Frontoffice;Authentification;LoginCustomerView / ListLoginView;Création login et inscription client;Affichage;ETU003110;24;22;2
+5;Frontoffice;Authentification;LoginCustomerView;Déconnexion et nettoyage session client;Intégration;ETU003110;10;8;2
+6;Frontoffice;Catalogue;ProductListView;Affichage liste produits;Affichage;ETU003110;26;24;2
+7;Frontoffice;Catalogue;ProductListView;Badge hot et new sur produits;Affichage;ETU003110;14;12;2
+8;Frontoffice;Catalogue;ProductListView;Filtres produits marque/catégorie/prix;Metier;ETU003110;28;26;2
+9;Frontoffice;Fiche produit;ProductDetailView;Affichage détail produit et variantes;Affichage;ETU003110;24;22;2
+10;Frontoffice;Fiche produit;ProductDetailView;Chargement API images, stock, déclinaisons;Intégration;ETU003110;24;22;2
+11;Frontoffice;Panier;CartView;Ajout panier et gestion quantités;Metier;ETU003110;30;28;2
+12;Frontoffice;Panier;CartView;Calcul totaux et persistance panier;Intégration;ETU003110;20;18;2
+13;Frontoffice;Commande;CartView;Création commande depuis panier;Metier;ETU003110;28;26;2
+14;Frontoffice;Commande;OrderListView;Liste commandes client;Affichage;ETU003110;20;18;2
+15;Frontoffice;Commande;OrderDetailView;Détail commande client en lecture seule;Affichage;ETU003110;18;16;2
+16;Backoffice;Commande;OrderListView;Liste commandes admin;Affichage;ETU003110;24;22;2
+17;Backoffice;Commande;OrderDetailView;Modification statut commande et historique;Metier;ETU003110;30;28;2
+19;Backoffice;Import;ImportAllView;Import pour produit,categorie,taxe;Metier;ETU003110;22;20;2
+20;Backoffice;Import;ImportAllView;Import specificite ,stock et prix;Metier;ETU003110;36;34;2
+;Backoffice;Import;ImportAllView;Import clients, adresses, paniers et commandes;Metier;;;;
+21;Backoffice;Import;ImportAllView;Import et liaison images produits;Intégration;ETU003110;24;22;2
+;Backoffice;Import;ImportAllView;gerer tous les imports ;Metier;;;;
+;Backoffice;Import;ImportAllView;affichage pour import;Intergration;;;;
+;Backoffice;Reinitialisation;ResetView;renitialisation complete des donnees;Metier;;;;
+22;Backoffice;Reinitialisation;ResetView;Réinitialisation données et nettoyage;Metier;ETU003110;18;16;2
+23;Frontoffice;Adresse;AddressView / AddressCreateView;Gestion et création adresse client;Metier;ETU003110;22;20;2
+24;Frontoffice;Adresse;AddressView / AddressCreateView;Affichage liste et adresse par défaut;Affichage;ETU003110;18;16;2
+25;Frontoffice;Utilisateurs;ListLoginView;Liste utilisateurs client FO;Affichage;ETU003110;18;16;2
+26;Frontoffice;Utilisateurs;LoginCustomerView;Gestion utilisateur guest;Metier;ETU003110;16;14;2
+27;Backoffice;Tableau de bord;DashboardView;Tableaux de bord et indicateurs;Affichage;ETU003110;24;22;2
+28;Backoffice;Tableau de bord;DashboardView;Calcul stats et exclusion commandes annulées;Intégration;ETU003110;22;20;2
+29;Backoffice;Panier / Commande;OrderListView;Paniers non commandés dans la liste commande;Affichage;ETU003110;22;20;2
+30;Backoffice;Panier / Commande;OrderListView;Conversion panier vers commande;Intégration;ETU003110;24;22;2
+31;Import;Cas spécial;ImportCSV3View;"Gestion du "":"" dans le panier";Metier;ETU003110;14;12;2
+32;Frontoffice;Global;FOffice Navigation;Navigation complète entre pages et routes;Intégration;ETU003110;20;18;2
+33;Backoffice;Gestion Produit;ProduitListView;Affichage liste produits avec pagination;Affichage;ETU003110;22;20;2
+34;Backoffice;Gestion Produit;ProduitListView;Chargement données API produits;Intégration;ETU003110;24;22;2
+35;Backoffice;Gestion Produit;ProduitCreateView;Création produit et champs obligatoires;Metier;ETU003110;30;28;2
+36;Backoffice;Gestion Produit;ProduitCreateView;Gestion prix, quantité, visibilité et indexed;Base;ETU003110;22;20;2
+37;Backoffice;Gestion Produit;ProduitDetailView;Consultation détail produit;Affichage;ETU003110;18;16;2
+38;Backoffice;Gestion Produit;ProduitDetailView;Modification produit et sauvegarde API;Intégration;ETU003110;28;26;2
+39;Backoffice;Gestion Categorie;CategoryListView;Liste catégories avec arbre;Affichage;ETU003110;20;18;2
+40;Backoffice;Gestion Categorie;CategoryTreeItem;Affichage arbre catégories récursif;Affichage;ETU003110;18;16;2
+41;Backoffice;Gestion Categorie;CategoryCreateView;Ajout catégorie et liaison parent;Metier;ETU003110;24;22;2
+42;Backoffice;Gestion Categorie;CategoryDetailView;Détail catégorie et mise à jour;Intégration;ETU003110;22;20;2
+43;Backoffice;Gestion Client;CustomerListView;Liste clients admin;Affichage;ETU003110;20;18;2
+44;Backoffice;Gestion Client;CustomerCreateView;Création client et validation champs;Metier;ETU003110;24;22;2
+45;Backoffice;Gestion Client;CustomerDetailView;Détail client et consultation adresses;Affichage;ETU003110;18;16;2
+46;Backoffice;Gestion Panier;CartListView;Liste paniers admin;Affichage;ETU003110;20;18;2
+47;Backoffice;Gestion Panier;CartCreateView;Création panier et association client;Intégration;ETU003110;24;22;2
+48;Backoffice;Gestion Panier;CartDetailView;Détail panier et lignes produits;Affichage;ETU003110;18;16;2
+49;Backoffice;Gestion Transporteur;carrierService.js;Chargement transporteurs et tarifs;Intégration;ETU003110;18;16;2
+50;Backoffice;Gestion Stock;stockService.js;Lecture et mise à jour stocks;Base;ETU003110;24;22;2
+51;Backoffice;Gestion Taxe;taxeService.js;Calcul taux taxe par groupe;Metier;ETU003110;20;18;2
+52;Backoffice;Gestion Déclinaison;declinaisonService.js;Gestion variantes et déclinaisons;Intégration;ETU003110;22;20;2
+53;Backoffice;Gestion Déclinaison;combinationService.js;Association produit et combinaison;Base;ETU003110;24;22;2
+54;Backoffice;Gestion Employé;employeeService.js;Liste employés et récupération données;Affichage;ETU003110;18;16;2
+55;Backoffice;Gestion Employé;employeeService.js;Gestion droits et connexion employé;Metier;ETU003110;20;18;2
+56;Backoffice;Gestion Image;imageService.js;Import et synchronisation images produit;Intégration;ETU003110;22;20;2
+57;Backoffice;Import global;ImportAllView;Lancement import complet multi-source;Intégration;ETU003110;26;24;2
+58;Backoffice;Import images;importIMage.js;Traitement lot images et erreurs;Metier;ETU003110;20;18;2
+59;Backoffice;Réinitialisation;resetService.js;Suppression données de test;Base;ETU003110;18;16;2
+60;Frontoffice;Adresse;AddressView;Liste adresses client;Affichage;ETU003110;16;14;2
+61;Frontoffice;Adresse;AddressCreateView;Ajout nouvelle adresse client;Metier;ETU003110;20;18;2
+62;Frontoffice;Panier;CartView;Affichage panier non commandé;Affichage;ETU003110;18;16;2
+63;Frontoffice;Panier;CartView;Mise à jour quantité et suppression ligne;Metier;ETU003110;24;22;2
+64;Frontoffice;Commande;OrderListView;Liste commandes client par compte;Affichage;ETU003110;18;16;2
+65;Frontoffice;Commande;OrderDetailView;Détail commande et états;Intégration;ETU003110;20;18;2
+66;Frontoffice;Utilisateurs;LoginCustomerView;Connexion client et session locale;Intégration;ETU003110;18;16;2
+67;Frontoffice;Utilisateurs;ListLoginView;Liste comptes utilisateurs FO;Affichage;ETU003110;16;14;2
+68;Frontoffice;Utilisateurs;ListLoginView;Gestion utilisateur guest;Metier;ETU003110;14;12;2
