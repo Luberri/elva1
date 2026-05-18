@@ -1,5 +1,32 @@
 import { get, post, put, del, xmlToJson, jsonToXml, toText, DEFAULT_CURRENCY_ID } from '../api/util.js'
 import { isCartOrdered } from './orderService.js'
+import { getProductDetail } from './productService.js'
+
+const ORDER_DATE_LIMIT = new Date(2020, 4, 30)
+
+function parseAvailabilityDate(value) {
+  const raw = String(value || '').trim()
+  if (!raw) return null
+  const dateOnly = raw.split(' ')[0]
+  const match = dateOnly.match(/^\d{4}-\d{2}-\d{2}$/)
+  if (!match) return null
+  const [year, month, day] = dateOnly.split('-').map(part => Number(part))
+  if (!year || !month || !day) return null
+  return new Date(year, month - 1, day)
+}
+
+function assertProductDateAllowed(product, contextLabel) {
+  if (!product) return
+  const availability = parseAvailabilityDate(
+    product.date_availability_produit || product.available_date
+  )
+  if (!availability) return
+  if (availability < ORDER_DATE_LIMIT) {
+    throw new Error(
+      `${contextLabel}: produit ${product.id} interdit avant le ${ORDER_DATE_LIMIT.toISOString().split('T')[0]} (date_availability_produit: ${product.date_availability_produit}, available_date: ${product.available_date})`
+    )
+  }
+}
 
 export function formatCartData(cart) {
   if (!cart) return null
@@ -151,6 +178,15 @@ export async function deleteCart(id) {
 }
 
 export async function createCart(data) {
+  if (data.cartRows && data.cartRows.length) {
+    for (const row of data.cartRows) {
+      const idProduct = row.id_product
+      if (!idProduct) continue
+      const product = await getProductDetail(idProduct)
+      assertProductDateAllowed(product, 'Creation panier')
+    }
+  }
+
   const cartObj = {
     id_currency: data.id_currency || DEFAULT_CURRENCY_ID,
     id_lang: data.id_lang || 1,
@@ -316,8 +352,10 @@ export async function updateCartDates(id, dateAdd) {
 function buildSafeCartUpdatePayload(source, data = {}) {
   const sourceRows = source?.associations?.cart_rows?.cart_row
   const rowsList = Array.isArray(sourceRows) ? sourceRows : (sourceRows ? [sourceRows] : [])
-  const providedRows = Array.isArray(data.cartRows) ? data.cartRows : []
-  const cartRows = (providedRows.length ? providedRows : rowsList).map(row => ({
+  const providedRows = Array.isArray(data.cartRows) ? data.cartRows : null
+  const hasProvidedRows = Array.isArray(data.cartRows)
+  const rowsToUse = hasProvidedRows ? providedRows : rowsList
+  const cartRows = rowsToUse.map(row => ({
     id_product: toText(row.id_product),
     id_product_attribute: toText(row.id_product_attribute) || '0',
     id_address_delivery: toText(row.id_address_delivery) || toText(data.id_address_delivery) || toText(source.id_address_delivery) || '0',
@@ -346,9 +384,9 @@ function buildSafeCartUpdatePayload(source, data = {}) {
     date_add: toText(data.date_add ?? source.date_add),
     date_upd: toText(data.date_upd ?? source.date_upd ?? data.date_add ?? source.date_add),
     associations: {
-      cart_rows: {
-        cart_row: cartRows
-      }
+      cart_rows: (hasProvidedRows && cartRows.length === 0)
+        ? {}
+        : { cart_row: cartRows }
     }
   }
 
@@ -385,6 +423,9 @@ export async function addToCart(data) {
   const quantity = Number(data.quantity || 1)
 
   if (!idProduct) throw new Error('ID produit manquant pour le panier')
+
+  const product = await getProductDetail(idProduct)
+  assertProductDateAllowed(product, 'Ajout panier')
 
   let cartId = localStorage.getItem('fo_cart_id')
   let cart = null

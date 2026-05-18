@@ -1,8 +1,13 @@
 import { get, post, put, del, xmlToJson, jsonToXml } from '../api/util.js'
 import { toText } from '../api/util.js'
+import { createStockAv } from './stockAvailableService.js'
 
+// ================================
+// FORMAT
+// ================================
 export function formatCombinationData(combination) {
   if (!combination) return null
+
   return {
     id: String(combination.id || ''),
     id_product: toText(combination.id_product),
@@ -11,7 +16,7 @@ export function formatCombinationData(combination) {
     isbn: toText(combination.isbn),
     upc: toText(combination.upc),
     mpn: toText(combination.mpn),
-    quantity: toText(combination.quantity),
+
     reference: toText(combination.reference),
     supplier_reference: toText(combination.supplier_reference),
     wholesale_price: toText(combination.wholesale_price),
@@ -19,19 +24,24 @@ export function formatCombinationData(combination) {
     ecotax: toText(combination.ecotax),
     weight: toText(combination.weight),
     unit_price_impact: toText(combination.unit_price_impact),
+
     minimal_quantity: toText(combination.minimal_quantity),
     low_stock_threshold: toText(combination.low_stock_threshold),
     low_stock_alert: toText(combination.low_stock_alert) === '1',
+
     default_on: toText(combination.default_on) === '1',
     available_date: toText(combination.available_date),
+
     associations: combination.associations || null
   }
 }
 
+// ================================
+// CLEAN XML
+// ================================
 function stripXlinkAttributes(value) {
-  if (Array.isArray(value)) {
-    return value.map(stripXlinkAttributes)
-  }
+  if (Array.isArray(value)) return value.map(stripXlinkAttributes)
+
   if (value && typeof value === 'object') {
     const cleaned = {}
     for (const [key, val] of Object.entries(value)) {
@@ -43,47 +53,71 @@ function stripXlinkAttributes(value) {
   return value
 }
 
+// ================================
+// LIST
+// ================================
 function buildListQuery({ filters = {}, sort, limit, display = 'full' } = {}) {
   const query = { display }
+
   for (const [key, value] of Object.entries(filters)) {
     if (value === undefined || value === null || value === '') continue
     query[`filter[${key}]`] = value
   }
+
   if (sort) query.sort = sort
   if (limit) query.limit = limit
+
   return query
 }
 
+// ================================
+// GET ONE
+// ================================
 export async function apiCombination(id) {
-  if (id === undefined || id === null || id === '') throw new Error('ID combinaison manquant')
+  if (!id) throw new Error('ID combinaison manquant')
+
   const xml = await get({ resource: 'combinations', id })
   return xmlToJson(xml)
 }
 
+// ================================
+// GET ALL
+// ================================
 export async function apiCombinations(options = {}) {
-  const xml = await get({ resource: 'combinations', query: buildListQuery(options) })
-  return xmlToJson(xml)
-}
-
-export async function apiCombinationsByProduct(productId) {
-  if (productId === undefined || productId === null || productId === '') {
-    throw new Error('ID produit manquant pour les combinaisons')
-  }
   const xml = await get({
     resource: 'combinations',
-    query: { 'filter[id_product]': productId, display: 'full' }
+    query: buildListQuery(options)
   })
+
   return xmlToJson(xml)
 }
 
-export async function getCombination(combId) {
-  const id = toText(combId)
-  if (!id) return null
+// ================================
+// BY PRODUCT
+// ================================
+export async function apiCombinationsByProduct(productId) {
+  if (!productId) {
+    throw new Error('ID produit manquant')
+  }
 
+  const xml = await get({
+    resource: 'combinations',
+    query: {
+      'filter[id_product]': productId,
+      display: 'full'
+    }
+  })
+
+  return xmlToJson(xml)
+}
+
+// ================================
+// GET HELPERS
+// ================================
+export async function getCombination(id) {
   try {
     const data = await apiCombination(id)
-    const combination = data?.prestashop?.combination ?? null
-    return formatCombinationData(combination)
+    return formatCombinationData(data?.prestashop?.combination)
   } catch {
     return null
   }
@@ -92,59 +126,61 @@ export async function getCombination(combId) {
 export async function getAllCombinations(options = {}) {
   const data = await apiCombinations(options)
   const nodes = data?.prestashop?.combinations?.combination
-  
-  if (!nodes) {
-    return []
-  }
+
+  if (!nodes) return []
 
   const list = Array.isArray(nodes) ? nodes : [nodes]
-  return list.map(item => formatCombinationData(item)).filter(r => r !== null)
+  return list.map(formatCombinationData).filter(Boolean)
 }
 
 export async function getCombinationsByProduct(productId) {
   const data = await apiCombinationsByProduct(productId)
   const nodes = data?.prestashop?.combinations?.combination
 
-  if (!nodes) {
-    return []
-  }
+  if (!nodes) return []
 
   const list = Array.isArray(nodes) ? nodes : [nodes]
-  return list
-    .map(item => formatCombinationData(item))
-    .filter(r => r !== null)
+  return list.map(formatCombinationData).filter(Boolean)
 }
 
+// ================================
+// CREATE (FIX IMPORTANT)
+// ================================
 export async function createCombination(data) {
-  const obj = {
-    id_product: data.id_product, // Obligatoire
-    minimal_quantity: data.minimal_quantity || 1 // Obligatoire
+  if (!data.id_product) throw new Error('id_product requis')
+  if (!data.product_option_value_ids?.length) {
+    throw new Error('product_option_value_ids requis')
   }
 
-  // Optionnels
-  if (data.location !== undefined) obj.location = data.location
-  if (data.ean13 !== undefined) obj.ean13 = data.ean13
-  if (data.isbn !== undefined) obj.isbn = data.isbn
-  if (data.upc !== undefined) obj.upc = data.upc
-  if (data.mpn !== undefined) obj.mpn = data.mpn
-  if (data.quantity !== undefined) obj.quantity = data.quantity
-  if (data.reference !== undefined) obj.reference = data.reference
-  if (data.supplier_reference !== undefined) obj.supplier_reference = data.supplier_reference
-  if (data.wholesale_price !== undefined) obj.wholesale_price = data.wholesale_price
-  if (data.price !== undefined) obj.price = data.price
-  if (data.ecotax !== undefined) obj.ecotax = data.ecotax
-  if (data.weight !== undefined) obj.weight = data.weight
-  if (data.unit_price_impact !== undefined) obj.unit_price_impact = data.unit_price_impact
-  if (data.low_stock_threshold !== undefined) obj.low_stock_threshold = data.low_stock_threshold
-  if (data.low_stock_alert !== undefined) obj.low_stock_alert = data.low_stock_alert ? 1 : 0
-  if (data.default_on !== undefined) obj.default_on = data.default_on ? 1 : 0
-  if (data.available_date !== undefined) obj.available_date = data.available_date
-  if (data.associations !== undefined) obj.associations = stripXlinkAttributes(data.associations)
+  const obj = {
+    id_product: data.id_product,
+    minimal_quantity: data.minimal_quantity ?? 1,
+
+    reference: data.reference || '',
+    supplier_reference: data.supplier_reference || '',
+    wholesale_price: data.wholesale_price ?? 0,
+    price: data.price ?? 0,
+    weight: data.weight ?? 0,
+    ecotax: data.ecotax ?? 0,
+
+    default_on: data.default_on ? 1 : 0,
+    low_stock_alert: data.low_stock_alert ? 1 : 0,
+    low_stock_threshold: data.low_stock_threshold ?? 0,
+
+    available_date: data.available_date
+  }
+
+  // associations
+  obj.associations = {
+    product_option_values: {
+      product_option_value: data.product_option_value_ids.map(id => ({
+        id: String(id)
+      }))
+    }
+  }
 
   const xmlRequest = jsonToXml({
-    prestashop: {
-      combination: obj
-    }
+    prestashop: { combination: obj }
   })
 
   const xmlResponse = await post({
@@ -152,55 +188,76 @@ export async function createCombination(data) {
     body: xmlRequest
   })
 
-  return xmlToJson(xmlResponse)
-}
+  const res = xmlToJson(xmlResponse)
+  const combId = res?.prestashop?.combination?.id
 
-export async function updateCombination(id, data) {
-  if (id === undefined || id === null || id === '') throw new Error('ID combinaison manquant pour la modification')
-
-  const obj = {
-    id: id,
-    id_product: data.id_product, // Obligatoire
-    minimal_quantity: data.minimal_quantity || 1 // Obligatoire
+  // ================================
+  // STOCK CREATION FIXED
+  // ================================
+  if (combId) {
+    await createStockAv({
+      id_product: data.id_product,
+      id_product_attribute: combId,
+      physical_quantity: data.quantity ?? 0,
+      usable_quantity: data.quantity ?? 0,
+      price_te: data.price ?? 0,
+      reference: data.reference || ''
+    })
   }
 
-  // Optionnels
-  if (data.location !== undefined) obj.location = data.location
-  if (data.ean13 !== undefined) obj.ean13 = data.ean13
-  if (data.isbn !== undefined) obj.isbn = data.isbn
-  if (data.upc !== undefined) obj.upc = data.upc
-  if (data.mpn !== undefined) obj.mpn = data.mpn
-  if (data.quantity !== undefined) obj.quantity = data.quantity
-  if (data.reference !== undefined) obj.reference = data.reference
-  if (data.supplier_reference !== undefined) obj.supplier_reference = data.supplier_reference
-  if (data.wholesale_price !== undefined) obj.wholesale_price = data.wholesale_price
-  if (data.price !== undefined) obj.price = data.price
-  if (data.ecotax !== undefined) obj.ecotax = data.ecotax
-  if (data.weight !== undefined) obj.weight = data.weight
-  if (data.unit_price_impact !== undefined) obj.unit_price_impact = data.unit_price_impact
-  if (data.low_stock_threshold !== undefined) obj.low_stock_threshold = data.low_stock_threshold
-  if (data.low_stock_alert !== undefined) obj.low_stock_alert = data.low_stock_alert ? 1 : 0
-  if (data.default_on !== undefined) obj.default_on = data.default_on ? 1 : 0
-  if (data.available_date !== undefined) obj.available_date = data.available_date
-  if (data.associations !== undefined) obj.associations = stripXlinkAttributes(data.associations)
+  return res
+}
+
+// ================================
+// UPDATE (FIX SAME PROBLEMS)
+// ================================
+export async function updateCombination(id, data) {
+  if (!id) throw new Error('ID combinaison manquant')
+
+  const obj = {
+    id,
+    id_product: data.id_product,
+    minimal_quantity: data.minimal_quantity ?? 1,
+
+    reference: data.reference,
+    supplier_reference: data.supplier_reference,
+    wholesale_price: data.wholesale_price,
+    price: data.price,
+    weight: data.weight,
+    ecotax: data.ecotax,
+
+    default_on: data.default_on ? 1 : 0,
+    low_stock_alert: data.low_stock_alert ? 1 : 0,
+    low_stock_threshold: data.low_stock_threshold
+  }
+
+  if (data.associations) {
+    obj.associations = stripXlinkAttributes(data.associations)
+  }
 
   const xmlRequest = jsonToXml({
-    prestashop: {
-      combination: obj
-    }
+    prestashop: { combination: obj }
   })
 
   const xmlResponse = await put({
     resource: 'combinations',
-    id: id,
+    id,
     body: xmlRequest
   })
 
   return xmlToJson(xmlResponse)
 }
 
+// ================================
+// DELETE
+// ================================
 export async function deleteCombination(id) {
-  if (id === undefined || id === null || id === '') throw new Error('ID combinaison manquant')
-  const xml = await del({ resource: 'combinations', id })
+  if (!id) throw new Error('ID combinaison manquant')
+
+  const xml = await del({
+    resource: 'combinations',
+    id
+  })
+
   return xmlToJson(xml)
 }

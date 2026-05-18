@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { getAllProducts } from '../../../service/productService.js'
+import { getAllProducts, hasCombination } from '../../../service/productService.js'
 import { getCategory } from '../../../service/categorieService.js'
 import { deleteProduct } from '../../../service/productService.js'
 import { DEFAULT_CURRENCY_NAME } from '../../../api/util.js'
@@ -15,6 +15,15 @@ async function charger() {
 	loading.value = true
 	try {
 		rows.value = await getAllProducts({ filters: {} })
+		// Enrichir avec les infos de combinaisons
+		for (const produit of rows.value) {
+			try {
+				produit.has_combination = await hasCombination(produit.id)
+			} catch (e) {
+				console.error(`Erreur vérification combinaisons pour ${produit.id}:`, e)
+				produit.has_combination = false
+			}
+		}
 	} catch (e) {
 		error.value = e?.message || String(e)
 	} finally {
@@ -66,6 +75,7 @@ const currencyName = DEFAULT_CURRENCY_NAME
 					<th>Prix</th>
 					<th>Remise Qté</th>
 					<th>État</th>
+					<th>Déclinaisons</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -92,6 +102,10 @@ const currencyName = DEFAULT_CURRENCY_NAME
 					<td>{{ p.quantity_discount }}</td>
 					<td>{{ p.state || '-' }}</td>
 					<td>
+						<span v-if="p.has_combination" class="badge badge-success">Oui</span>
+						<span v-else class="badge badge-danger">Non</span>
+					</td>
+					<td>
 						<button @click="handledelete(p.id)" class="btn btn-danger">Supprimer</button>
 					</td>
 				</tr>
@@ -107,5 +121,24 @@ const currencyName = DEFAULT_CURRENCY_NAME
 	display: flex;
 	justify-content: space-between;
 	margin-bottom: 10px;
+}
+
+.badge {
+	display: inline-block;
+	padding: 0.375rem 0.75rem;
+	border-radius: 4px;
+	font-size: 0.875rem;
+	font-weight: 500;
+	text-align: center;
+}
+
+.badge-success {
+	background-color: #28a745;
+	color: white;
+}
+
+.badge-danger {
+	background-color: #dc3545;
+	color: white;
 }
 </style>

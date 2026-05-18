@@ -20,9 +20,13 @@ function toggleSidebar() {
           <span class="icon">📊</span>
           <span>Tableau de bord</span>
         </RouterLink>
-        <RouterLink to="/">
+        <RouterLink to="/products">
           <span class="icon">📦</span>
           <span>Produits</span>
+        </RouterLink>
+        <RouterLink to="/combinations/create">
+          <span class="icon">🧩</span>
+          <span>Declinaisons</span>
         </RouterLink>
         <RouterLink to="/categories">
           <span class="icon">📂</span>

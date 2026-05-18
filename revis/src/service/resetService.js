@@ -134,6 +134,7 @@ export async function resetAllData() {
 
     'stock_movements',
     'stocks',
+    'stock_availables',
 
     'products',
 

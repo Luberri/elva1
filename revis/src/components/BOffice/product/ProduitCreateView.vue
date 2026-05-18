@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createProduct, getProductDetail } from '../../../service/productService.js'
 import { uploadImage } from '../../../service/imageService.js'
-import { updateStock } from '../../../service/stockService.js'
+import { updateStockAv } from '../../../service/stockAvailableService.js'
 import Editor from '@tinymce/tinymce-vue'
 
 const router = useRouter()

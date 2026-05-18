@@ -33,6 +33,7 @@ export function formatProductData(product) {
     quantity_discount: product.quantity_discount || '0',
     state: product.state || '',
     available_date: toText(product.available_date),
+    date_availability_produit: toText(product.date_availability_produit),
   }
 }
 
@@ -87,6 +88,48 @@ export async function getAllProducts(options = {}) {
 
   const list = Array.isArray(productsNode) ? productsNode : [productsNode]
   return list.map(item => formatProductData(item)).filter(r => r !== null)
+}
+
+// ===============================
+// COMBINATIONS
+// ===============================
+export async function apiCombinations(options = {}) {
+  const xml = await get({ resource: 'combinations', query: buildListQuery(options) })
+  return xmlToJson(xml)
+}
+
+export function formatCombinationData(c) {
+  if (!c) return null
+  return {
+    id: toText(c.id),
+    id_product: toText(c.id_product),
+    reference: toText(c.reference),
+    price: toText(c.price),
+    wholesale_price: toText(c.wholesale_price),
+    default_on: toText(c.default_on)
+  }
+}
+
+/**
+ * Retourne la liste des combinaisons pour un produit donné
+ * @param {string|number} idProduct
+ */
+export async function getCombinationsForProduct(idProduct) {
+  if (idProduct === undefined || idProduct === null || idProduct === '') throw new Error('ID product manquant')
+
+  const data = await apiCombinations({ filters: { id_product: idProduct }, display: 'full' })
+
+  // Prestashop peut retourner sous prestashop.combinations.combination ou prestashop.combination
+  const nodes = data?.prestashop?.combinations?.combination || data?.prestashop?.combination || data?.prestashop?.combinations
+  if (!nodes) return []
+
+  const list = Array.isArray(nodes) ? nodes : [nodes]
+  return list.map(formatCombinationData).filter(Boolean)
+}
+
+export async function hasCombination(idProduct) {
+  const list = await getCombinationsForProduct(idProduct)
+  return Array.isArray(list) && list.length > 0
 }
 
 export async function deleteProduct(id) {

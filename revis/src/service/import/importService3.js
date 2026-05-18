@@ -1,5 +1,5 @@
 import Papa from 'papaparse'
-import { get, post, xmlToJson, jsonToXml, toText, DEFAULT_CURRENCY_ID } from '../../api/util.js'
+import { get, post, xmlToJson, jsonToXml, toText, DEFAULT_CURRENCY_ID, isPositif } from '../../api/util.js'
 import { getAllProducts, getPriceTtcWithImpact, parsePriceValue } from '../productService.js'
 import { getCombinationsByProduct } from '../combinationService.js'
 import { createCustomer, getCustomerByEmail, getCustomerDetail } from '../customerService.js'
@@ -57,6 +57,7 @@ const ORDER_STATE_BY_LABEL = new Map([
   ['autorisation. a capturer par le marchand', 17],
   ['en attente du paiement par cheque', 1],
   ['en attente de virement bancaire', 10],
+  ['dans le panier', 0],
   ['', 0]
 ])
 
@@ -255,6 +256,11 @@ export async function importDataFromCSV3(csvText) {
           combId = comb.id
           priceImpact = parsePriceValue(comb.price)
         }
+
+        isPositif([
+          { name: 'prix_produit', value: parsePriceValue(product.price) },
+          { name: 'prix_declinaison', value: priceImpact }
+        ], row.__line)
 
         cartRows.push({
           id_product: String(product.id),

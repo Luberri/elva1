@@ -51,7 +51,7 @@ Ligne;Catégorie;Module;Page;Description tâche;Type;Qui;Estimation;Temps passé
 47;Backoffice;Gestion Panier;CartCreateView;Création panier et association client;Intégration;ETU003110;24;22;2
 48;Backoffice;Gestion Panier;CartDetailView;Détail panier et lignes produits;Affichage;ETU003110;18;16;2
 49;Backoffice;Gestion Transporteur;carrierService.js;Chargement transporteurs et tarifs;Intégration;ETU003110;18;16;2
-50;Backoffice;Gestion Stock;stockService.js;Lecture et mise à jour stocks;Base;ETU003110;24;22;2
+50;Backoffice;Gestion Stock;stockAvailableService.js;Lecture et mise à jour stocks;Base;ETU003110;24;22;2
 51;Backoffice;Gestion Taxe;taxeService.js;Calcul taux taxe par groupe;Metier;ETU003110;20;18;2
 52;Backoffice;Gestion Déclinaison;declinaisonService.js;Gestion variantes et déclinaisons;Intégration;ETU003110;22;20;2
 53;Backoffice;Gestion Déclinaison;combinationService.js;Association produit et combinaison;Base;ETU003110;24;22;2

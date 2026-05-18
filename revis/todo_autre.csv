@@ -1,0 +1,132 @@
+Ligne;Catégorie;Module;Page;Description tâche;Type;Qui;Estimation;Temps passé;Reste à faire
+1;Backoffice;Prise en main;Prestashop BO;Installation Prestashop et accès admin;Base;ETU003110;48;0;48
+2;Backoffice;Prise en main;Prestashop BO;Configuration boutique langue et devise;Base;ETU003110;36;0;36
+3;Backoffice;Prise en main;Prestashop BO;Activation webservice et clé API;Base;ETU003110;40;0;40
+4;Backoffice;Prise en main;Prestashop BO;Configuration stock et entrepôt;Base;ETU003110;44;0;44
+5;Backoffice;Prise en main;Prestashop BO;Vérification droits employé et permissions;Base;ETU003110;32;0;32
+6;Backoffice;Prise en main;Prestashop BO;Création données demo catégories produits;Metier;ETU003110;40;0;40
+7;Backoffice;Prise en main;Prestashop BO;Paramétrage transporteurs et taxes;Base;ETU003110;36;0;36
+8;Backoffice;Prise en main;Prestashop BO;Réglage états commande;Base;ETU003110;32;0;32
+9;Backoffice;Prise en main;Prestashop BO;Tests API produits commandes;Test;ETU003110;32;0;32
+10;Backoffice;Prise en main;Prestashop BO;Documentation et checklist exploitation;Integration;ETU003110;28;0;28
+11;Backoffice;Auth BO;Login;UI login BO;Affichage;ETU003110;32;0;32
+12;Backoffice;Auth BO;Login;Validation champs login BO;Metier;ETU003110;36;0;36
+13;Backoffice;Auth BO;Login;Session et token BO;Integration;ETU003110;40;0;40
+14;Backoffice;Auth BO;Login;Gestion erreurs et messages BO;Metier;ETU003110;32;0;32
+15;Backoffice;Auth BO;Login;Déconnexion BO;Integration;ETU003110;28;0;28
+16;Backoffice;Auth BO;Login;Protection routes BO;Integration;ETU003110;36;0;36
+17;Backoffice;Commande;OrderListView;Liste commandes admin;Affichage;ETU003110;36;0;36
+18;Backoffice;Commande;OrderListView;Filtres par date et statut;Metier;ETU003110;40;0;40
+19;Backoffice;Commande;OrderListView;Recherche par référence et client;Metier;ETU003110;40;0;40
+20;Backoffice;Commande;OrderListView;Pagination et tri;Affichage;ETU003110;32;0;32
+21;Backoffice;Commande;OrderDetailView;Détail commande admin;Affichage;ETU003110;36;0;36
+22;Backoffice;Commande;OrderDetailView;Historique statuts commande;Integration;ETU003110;40;0;40
+23;Backoffice;Commande;OrderDetailView;Modification statut commande;Metier;ETU003110;44;0;44
+24;Backoffice;Commande;OrderDetailView;Création mouvement stock sur statut;Integration;ETU003110;44;0;44
+25;Backoffice;Commande;OrderDetailView;Mise à jour paiement commande;Integration;ETU003110;36;0;36
+26;Backoffice;Commande;OrderDetailView;Validation erreurs API commandes;Test;ETU003110;32;0;32
+27;Frontoffice;Auth FO;LoginCustomerView;UI login client;Affichage;ETU003110;32;0;32
+28;Frontoffice;Auth FO;ListLoginView;UI inscription client;Affichage;ETU003110;32;0;32
+29;Frontoffice;Auth FO;LoginCustomerView;Validation champs login;Metier;ETU003110;36;0;36
+30;Frontoffice;Auth FO;LoginCustomerView;Session locale client;Integration;ETU003110;36;0;36
+31;Frontoffice;Auth FO;LoginCustomerView;Déconnexion client;Integration;ETU003110;28;0;28
+32;Frontoffice;Auth FO;ListLoginView;Messages erreurs inscription;Metier;ETU003110;32;0;32
+33;Frontoffice;Auth FO;ListLoginView;Redirection post-login;Integration;ETU003110;32;0;32
+34;Frontoffice;Catalogue;ProductListView;Affichage grille produits;Affichage;ETU003110;32;0;32
+35;Frontoffice;Catalogue;ProductListView;Chargement images et prix;Integration;ETU003110;36;0;36
+36;Frontoffice;Catalogue;ProductListView;Filtre par nom;Metier;ETU003110;36;0;36
+37;Frontoffice;Catalogue;ProductListView;Filtre par catégorie;Metier;ETU003110;36;0;36
+38;Frontoffice;Catalogue;ProductListView;Filtre par prix;Metier;ETU003110;36;0;36
+39;Frontoffice;Catalogue;ProductListView;Badge HOT et NEW;Affichage;ETU003110;28;0;28
+40;Frontoffice;Catalogue;ProductListView;Tri par prix;Metier;ETU003110;32;0;32
+41;Frontoffice;Catalogue;ProductListView;Pagination produits;Affichage;ETU003110;32;0;32
+42;Frontoffice;Catalogue;ProductListView;Gestion erreur chargement;Metier;ETU003110;32;0;32
+43;Frontoffice;Fiche produit;ProductDetailView;Affichage détail produit;Affichage;ETU003110;32;0;32
+44;Frontoffice;Fiche produit;ProductDetailView;Affichage images produit;Affichage;ETU003110;32;0;32
+45;Frontoffice;Fiche produit;ProductDetailView;Affichage déclinaisons;Affichage;ETU003110;32;0;32
+46;Frontoffice;Fiche produit;ProductDetailView;Calcul prix TTC;Metier;ETU003110;36;0;36
+47;Frontoffice;Fiche produit;ProductDetailView;Ajout panier depuis fiche;Metier;ETU003110;36;0;36
+48;Frontoffice;Fiche produit;ProductDetailView;État stock affichage;Affichage;ETU003110;28;0;28
+49;Frontoffice;Fiche produit;ProductDetailView;Gestion quantité;Metier;ETU003110;32;0;32
+50;Frontoffice;Fiche produit;ProductDetailView;Messages erreur API;Metier;ETU003110;32;0;32
+51;Frontoffice;Panier;CartView;Liste lignes panier;Affichage;ETU003110;32;0;32
+52;Frontoffice;Panier;CartView;Mise à jour quantité;Metier;ETU003110;40;0;40
+53;Frontoffice;Panier;CartView;Suppression ligne panier;Metier;ETU003110;36;0;36
+54;Frontoffice;Panier;CartView;Vider panier;Metier;ETU003110;32;0;32
+55;Frontoffice;Panier;CartView;Calcul total HT TTC;Metier;ETU003110;36;0;36
+56;Frontoffice;Panier;CartView;Sélection adresse;Affichage;ETU003110;28;0;28
+57;Frontoffice;Panier;CartView;Sélection transporteur;Affichage;ETU003110;28;0;28
+58;Frontoffice;Panier;CartView;Choix paiement;Affichage;ETU003110;28;0;28
+59;Frontoffice;Panier;CartView;Validation stock;Metier;ETU003110;40;0;40
+60;Frontoffice;Panier;CartView;Panier non commandé;Metier;ETU003110;36;0;36
+61;Frontoffice;Commande;CartView;Création commande;Metier;ETU003110;44;0;44
+62;Frontoffice;Commande;OrderListView;Liste commandes client;Affichage;ETU003110;32;0;32
+63;Frontoffice;Commande;OrderDetailView;Détail commande client;Affichage;ETU003110;32;0;32
+64;Frontoffice;Commande;OrderDetailView;État commande;Affichage;ETU003110;28;0;28
+65;Frontoffice;Commande;OrderDetailView;Enregistrement paiement;Integration;ETU003110;36;0;36
+66;Frontoffice;Commande;OrderListView;Filtre par date;Metier;ETU003110;32;0;32
+67;Frontoffice;Commande;OrderListView;Recherche par référence;Metier;ETU003110;32;0;32
+68;Frontoffice;Commande;OrderListView;Rechargement commandes;Integration;ETU003110;28;0;28
+69;Frontoffice;Commande;OrderListView;Gestion erreurs;Metier;ETU003110;32;0;32
+70;Frontoffice;Commande;OrderDetailView;Affichage adresse livraison;Affichage;ETU003110;28;0;28
+71;Backoffice;Commande;OrderStateListView;Liste états commande;Affichage;ETU003110;32;0;32
+72;Backoffice;Commande;OrderDetailView;Modification statut commande;Metier;ETU003110;44;0;44
+73;Backoffice;Commande;OrderDetailView;Historique statuts;Integration;ETU003110;36;0;36
+74;Backoffice;Commande;OrderDetailView;Création mouvement stock sur statut;Integration;ETU003110;44;0;44
+75;Backoffice;Commande;OrderDetailView;Blocage stock insuffisant;Metier;ETU003110;40;0;40
+76;Backoffice;Commande;OrderListView;Paniers non commandés liste commandes;Affichage;ETU003110;36;0;36
+77;Backoffice;Commande;OrderListView;Conversion panier vers commande;Integration;ETU003110;44;0;44
+78;Backoffice;Commande;OrderListView;Actions batch commandes;Metier;ETU003110;40;0;40
+79;Backoffice;Commande;OrderListView;Export CSV commandes;Integration;ETU003110;36;0;36
+80;Backoffice;Commande;OrderDetailView;Mise à jour date commande et stock_mvt;Integration;ETU003110;40;0;40
+81;Backoffice;Import;ImportCSV1View;UI import CSV1;Affichage;ETU003110;32;0;32
+82;Backoffice;Import;ImportCSV1View;Validation colonnes CSV1;Metier;ETU003110;40;0;40
+83;Backoffice;Import;ImportCSV1View;Création catégories CSV1;Integration;ETU003110;44;0;44
+84;Backoffice;Import;ImportCSV1View;Création taxes CSV1;Integration;ETU003110;44;0;44
+85;Backoffice;Import;ImportCSV1View;Création produits CSV1;Integration;ETU003110;44;0;44
+86;Backoffice;Import;ImportCSV1View;Gestion erreurs ligne CSV1;Metier;ETU003110;40;0;40
+87;Backoffice;Import;ImportCSV1View;Résumé import CSV1;Affichage;ETU003110;32;0;32
+88;Backoffice;Import;ImportCSV1View;Journal import CSV1;Integration;ETU003110;32;0;32
+89;Backoffice;Import;ImportCSV1View;Option idempotent CSV1;Metier;ETU003110;36;0;36
+90;Backoffice;Import;ImportCSV1View;Tests import CSV1;Test;ETU003110;36;0;36
+91;Backoffice;Import;ImportCSV2View;UI import CSV2;Affichage;ETU003110;32;0;32
+92;Backoffice;Import;ImportCSV2View;Validation colonnes CSV2;Metier;ETU003110;40;0;40
+93;Backoffice;Import;ImportCSV2View;Gestion stock disponible CSV2;Integration;ETU003110;44;0;44
+94;Backoffice;Import;ImportCSV2View;Gestion prix achat CSV2;Integration;ETU003110;44;0;44
+95;Backoffice;Import;ImportCSV2View;Gestion erreurs ligne CSV2;Metier;ETU003110;40;0;40
+96;Backoffice;Import;ImportCSV2View;Résumé import CSV2;Affichage;ETU003110;32;0;32
+97;Backoffice;Import;ImportCSV2View;Tests import CSV2;Test;ETU003110;36;0;36
+98;Backoffice;Import;ImportCSV2View;Journal import CSV2;Integration;ETU003110;32;0;32
+99;Backoffice;Import;ImportCSV3View;UI import CSV3;Affichage;ETU003110;32;0;32
+100;Backoffice;Import;ImportCSV3View;Validation colonnes CSV3;Metier;ETU003110;40;0;40
+101;Backoffice;Import;ImportCSV3View;Gestion panier avec ':';Metier;ETU003110;44;0;44
+102;Backoffice;Import;ImportCSV3View;Gestion commandes liées CSV3;Integration;ETU003110;44;0;44
+103;Backoffice;Import;ImportCSV3View;Gestion erreurs ligne CSV3;Metier;ETU003110;40;0;40
+104;Backoffice;Import;ImportCSV3View;Tests import CSV3;Test;ETU003110;36;0;36
+105;Backoffice;Import;ImportImagesView;UI import images;Affichage;ETU003110;32;0;32
+106;Backoffice;Import;ImportImagesView;Mapping images-produits;Integration;ETU003110;40;0;40
+107;Backoffice;Import;ImportImagesView;Upload batch images;Integration;ETU003110;44;0;44
+108;Backoffice;Import;ImportImagesView;Gestion erreurs upload;Metier;ETU003110;40;0;40
+109;Backoffice;Import;ImportImagesView;Résumé import images;Affichage;ETU003110;32;0;32
+110;Backoffice;Import;ImportImagesView;Tests import images;Test;ETU003110;36;0;36
+111;Backoffice;Reinitialisation;ResetView;UI réinitialisation;Affichage;ETU003110;32;0;32
+112;Backoffice;Reinitialisation;ResetView;Suppression données;Metier;ETU003110;36;0;36
+113;Backoffice;Reinitialisation;ResetView;Confirmation et logs;Integration;ETU003110;32;0;32
+114;Backoffice;Reinitialisation;ResetView;Tests réinitialisation;Test;ETU003110;32;0;32
+115;Frontoffice;Adresse;AddressView;Liste adresses;Affichage;ETU003110;28;0;28
+116;Frontoffice;Adresse;AddressCreateView;Création adresse;Metier;ETU003110;32;0;32
+117;Frontoffice;Adresse;AddressView;Modification adresse;Metier;ETU003110;32;0;32
+118;Frontoffice;Adresse;AddressView;Adresse par défaut;Metier;ETU003110;28;0;28
+119;Frontoffice;Utilisateurs;ListLoginView;Liste utilisateurs FO;Affichage;ETU003110;32;0;32
+120;Frontoffice;Utilisateurs;ListLoginView;Recherche utilisateur FO;Metier;ETU003110;32;0;32
+121;Frontoffice;Utilisateurs;LoginCustomerView;Utilisateur guest;Metier;ETU003110;36;0;36
+122;Frontoffice;Utilisateurs;LoginCustomerView;Suppression session guest;Integration;ETU003110;32;0;32
+123;Backoffice;Stock;Prestashop BO;Activation gestion stock Prestashop;Base;ETU003110;36;0;36
+124;Backoffice;Stock;ProduitDetailView;Ajout stock produit;Metier;ETU003110;40;0;40
+125;Backoffice;Stock;ProduitDetailView;Condition création mvt stock;Integration;ETU003110;40;0;40
+126;Backoffice;Stock;StockMovementView;Tableau évolution stock;Affichage;ETU003110;36;0;36
+127;Backoffice;Stock;StockMovementView;Filtre tableau évolution;Metier;ETU003110;36;0;36
+128;Backoffice;Dashboard;DashboardView;Option utiliser paniers;Metier;ETU003110;36;0;36
+129;Backoffice;Dashboard;DashboardView;Ajout case à cocher affichage;Affichage;ETU003110;32;0;32
+130;Backoffice;Dashboard;DashboardView;Modification CSS dashboard;Affichage;ETU003110;32;0;32
+131;Backoffice;Stock;StockMovementView;Modification CSS évolution stock;Affichage;ETU003110;32;0;32

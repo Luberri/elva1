@@ -57,6 +57,9 @@
         <button class="btn btn-primary" :disabled="ordering || isAnonymous || !selectedAddressId || !selectedCarrierId" @click="handleOrder">
           {{ ordering ? 'Commande...' : 'Commander' }}
         </button>
+        <button class="btn btn-secondary" :disabled="ordering || !cartRows.length" @click="handleClearCart">
+          Vider le panier
+        </button>
       </div>
 
       <table v-if="cartRows.length" class="table">
@@ -382,6 +385,35 @@ async function handleDeleteCart() {
     cart.value = null
     localStorage.removeItem('fo_cart_id')
     orderMessage.value = 'Panier supprime.'
+  } catch (e) {
+    error.value = e?.message || String(e)
+  } finally {
+    ordering.value = false
+  }
+}
+
+async function handleClearCart() {
+  error.value = ''
+  orderMessage.value = ''
+
+  if (!cart.value?.id) {
+    error.value = 'Panier introuvable'
+    return
+  }
+
+  ordering.value = true
+  try {
+    await updateCart(cart.value.id, {
+      id_currency: cart.value.id_currency || DEFAULT_CURRENCY_ID,
+      id_lang: cart.value.id_lang || 1,
+      id_customer: cart.value.id_customer || undefined,
+      id_address_delivery: cart.value.id_address_delivery || undefined,
+      id_address_invoice: cart.value.id_address_invoice || undefined,
+      cartRows: []
+    })
+
+    cart.value = await getCartDetail(cart.value.id)
+    orderMessage.value = 'Panier vide.'
   } catch (e) {
     error.value = e?.message || String(e)
   } finally {

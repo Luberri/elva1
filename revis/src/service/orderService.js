@@ -1,4 +1,46 @@
 import { get, post, put, del, xmlToJson, jsonToXml, toText, DEFAULT_CURRENCY_ID } from '../api/util.js'
+import { getCartDetail } from './cartService.js'
+import { getAllStocks as getStockAvailables } from './stockAvailableService.js'
+import { getAllStocks as getPhysicalStocks, createStock } from './stockService.js'
+import { createStockMvt, getAllStockMvts, updateStockMvtDate } from './stockMvtService.js'
+import { getProductDetail } from './productService.js'
+
+function pad(n) { return n < 10 ? '0' + n : String(n) }
+function formatDateTime(d) {
+  const Y = d.getFullYear()
+  const M = pad(d.getMonth() + 1)
+  const D = pad(d.getDate())
+  const h = pad(d.getHours())
+  const m = pad(d.getMinutes())
+  const s = pad(d.getSeconds())
+  return `${Y}-${M}-${D} ${h}:${m}:${s}`
+}
+
+const ORDER_DATE_LIMIT = new Date(2020, 4, 30)
+
+function parseAvailabilityDate(value) {
+  const raw = String(value || '').trim()
+  if (!raw) return null
+  const dateOnly = raw.split(' ')[0]
+  const match = dateOnly.match(/^\d{4}-\d{2}-\d{2}$/)
+  if (!match) return null
+  const [year, month, day] = dateOnly.split('-').map(part => Number(part))
+  if (!year || !month || !day) return null
+  return new Date(year, month - 1, day)
+}
+
+function assertProductDateAllowed(product, contextLabel) {
+  if (!product) return
+  const availability = parseAvailabilityDate(
+    product.date_availability_produit || product.available_date
+  )
+  if (!availability) return
+  if (availability < ORDER_DATE_LIMIT) {
+    throw new Error(
+      `${contextLabel}: produit ${product.id} interdit avant le ${ORDER_DATE_LIMIT.toISOString().split('T')[0]} (date_availability_produit: ${product.date_availability_produit}, available_date: ${product.available_date})`
+    )
+  }
+}
 
 export function formatOrderData(order) {
   if (!order) return null
@@ -227,10 +269,134 @@ export async function createOrderHistory(data) {
     body: xmlRequest
   })
 
-  return xmlToJson(xmlResponse)
+  const res = xmlToJson(xmlResponse)
+
+  // Si l'état passé est paiement accepté (2) ou livré (5), créer mouvements de sortie
+  const state = Number(data.id_order_state)
+  // if (state === 2 || state === 5) {
+    try {
+      await createStockMovementsForOrder(data.id_order)
+    } catch (e) {
+      console.error('Erreur création mouvements après history:', e?.message || e)
+    // }
+  }
+
+  return res
+}
+
+async function createStockMovementsForOrder(orderId) {
+  if (!orderId) return
+  try {
+    console.log(`Création mouvements de stock pour la commandeeeeeeeeee ${orderId}...`)
+    const detail = await getOrderDetail(orderId)
+    const rows = detail?.orderRows || []
+    for (const row of rows) {
+      const id_product = String(row.product_id || row.id_product || '')
+      const id_product_attribute = String(row.product_attribute_id || row.id_product_attribute || '0')
+      const qty = Number(row.product_quantity || 0)
+      if (!id_product || !qty) continue
+
+      // find physical stock id
+      const phys = await getPhysicalStocks({ filters: { id_product, id_product_attribute } })
+      let stock = Array.isArray(phys) && phys.length ? phys[0] : null
+
+      if (!stock) {
+        try {
+          const created = await createStock({
+            id_product,
+            id_product_attribute,
+            physical_quantity: 0,
+            usable_quantity: 0,
+            price_te: row.unit_price_tax_excl || row.product_price || 0,
+            id_employee: 1
+          })
+          const createdId = created?.prestashop?.stock?.id
+          if (createdId) {
+            stock = { id: createdId }
+          }
+        } catch (e) {
+          console.error('Erreur création stock physique avant mouvement:', e?.message || e)
+        }
+      }
+
+      const id_stock = stock?.id
+      if (!id_stock) {
+        console.error('Stock physique introuvable pour mouvement:', {
+          id_product,
+          id_product_attribute
+        })
+        continue
+      }
+
+      const mvt = {
+        id_product,
+        id_product_attribute,
+        id_stock,
+        id_order: String(orderId),
+        price_te: row.unit_price_tax_excl || row.product_price || 0,
+        physical_quantity: qty,
+        id_employee: 1,
+        id_stock_mvt_reason: 2,
+        date_add: formatDateTime(new Date()),
+        sign: -1
+      }
+
+      try {
+        await createStockMvt(mvt)
+      } catch (e) {
+        console.error('Erreur création stock_mvt sortie:', e?.message || e)
+      }
+    }
+  } catch (e) {
+    console.error('Erreur lors de la création des mouvements pour la commande', e?.message || e)
+  }
 }
 
 export async function createOrder(data) {
+  // Vérifier les quantités disponibles pour chaque ligne du panier (cartRows)
+  const rows = Array.isArray(data.cartRows) && data.cartRows.length
+    ? data.cartRows
+    : (data.id_cart ? (await getCartDetail(data.id_cart))?.cartRows || [] : [])
+
+  if (rows && rows.length) {
+    for (const row of rows) {
+      const id_product = String(row.id_product || row.product_id || '')
+      const id_product_attribute = String(row.id_product_attribute || row.product_attribute_id || '0')
+      const qtyRequested = Number(row.quantity || row.product_quantity || 0)
+
+      if (!id_product) continue
+
+      const product = await getProductDetail(id_product)
+      assertProductDateAllowed(product, 'Creation commande')
+
+      // Récupérer le stock disponible (stock_availables)
+      const stocks = await getStockAvailables({ filters: { id_product, id_product_attribute } })
+      const stock = Array.isArray(stocks) && stocks.length ? stocks[0] : null
+
+      let available = 0
+      if (stock) {
+        // si la gestion dépend du stock physique, sommer les stocks physiques
+        const depends = String(stock.depends_on_stock || '0')
+        if (depends === '1') {
+          const phys = await getPhysicalStocks({ filters: { id_product, id_product_attribute } })
+          if (Array.isArray(phys) && phys.length) {
+            available = phys.reduce((sum, s) => sum + Number(s.physical_quantity || 0), 0)
+          } else {
+            available = 0
+          }
+        } else {
+          available = Number(stock?.quantity || 0)
+        }
+      } else {
+        available = 0
+      }
+
+      if (qtyRequested > available) {
+        throw new Error(`Stock insuffisant pour produit ${id_product} attr ${id_product_attribute} : demandé ${qtyRequested}, disponible ${available}`)
+      }
+    }
+  }
+
   const orderObj = {
     id_address_delivery: data.id_address_delivery,
     id_address_invoice: data.id_address_invoice,
@@ -261,7 +427,20 @@ export async function createOrder(data) {
     body: xmlRequest
   })
 
-  return xmlToJson(xmlResponse)
+  const res = xmlToJson(xmlResponse)
+
+  // créer mouvements si l'état demandé est paiement accepté (2) ou livré (5)
+  const requestedState = Number(data.current_state || res?.prestashop?.order?.current_state || 0)
+  const orderId = res?.prestashop?.order?.id
+  if ((requestedState === 2 || requestedState === 5) && orderId) {
+    try {
+      await createStockMovementsForOrder(orderId)
+    } catch (e) {
+      console.error('Erreur création mouvements après création commande:', e?.message || e)
+    }
+  }
+
+  return res
 }
 export async function updateOrderDates(id, dateAdd) {
   if (!id) {
@@ -301,7 +480,22 @@ export async function updateOrderDates(id, dateAdd) {
     body: xmlRequest
   })
 
-  return xmlToJson(xmlResponse)
+  const response = xmlToJson(xmlResponse)
+
+  try {
+    const movements = await getAllStockMvts({ filters: { id_order: id }, display: 'full' })
+    if (Array.isArray(movements) && movements.length) {
+      await Promise.all(
+        movements
+          .filter(m => m?.id)
+          .map(m => updateStockMvtDate(m.id, dateAdd))
+      )
+    }
+  } catch (e) {
+    console.error('Erreur mise a jour date_add stock_mvt:', e?.message || e)
+  }
+
+  return response
 }
 
 function buildSafeOrderUpdatePayload(source, dateAdd) {
@@ -443,5 +637,17 @@ export async function updateOrder(id, data) {
     body: xmlRequest
   })
 
-  return xmlToJson(xmlResponse)
+  const res = xmlToJson(xmlResponse)
+
+  // Si on met à jour la commande vers paiement accepté (2) ou livré (5), créer mouvements de sortie
+  const newState = Number(data.current_state)
+  if ((newState === 2 || newState === 5)) {
+    try {
+      await createStockMovementsForOrder(id)
+    } catch (e) {
+      console.error('Erreur création mouvements après update commande:', e?.message || e)
+    }
+  }
+
+  return res
 }

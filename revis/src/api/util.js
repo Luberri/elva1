@@ -27,6 +27,72 @@ export function toText(value) {
   }
   return ''
 }
+
+export function normalizeAvailableDate(value) {
+  const raw = String(value || '').trim()
+
+  if (!raw) return null
+
+  return (
+    format1(raw) ||
+    format2(raw) ||
+    format3(raw) ||
+    format4(raw) ||
+    format5(raw)
+  )
+}
+
+//traitemnt pour 'le foramt'
+export function format1(value) {
+  // JJ/MM/AAAA
+  const match = String(value || '').trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  if (!match) return null
+  const [, day, month, year] = match
+  return `${year}-${month}-${day}`
+}
+
+export function format2(value) {
+  // JJ-MM-AAAA
+  const match = String(value || '').trim().match(/^(\d{2})-(\d{2})-(\d{4})$/)
+  if (!match) return null
+  const [, day, month, year] = match
+  return `${year}-${month}-${day}`
+}
+
+export function format3(value) {
+  // AAAA/MM/JJ
+  const match = String(value || '').trim().match(/^(\d{4})\/(\d{2})\/(\d{2})$/)
+  if (!match) return null
+  const [, year, month, day] = match
+  return `${year}-${month}-${day}`
+}
+
+export function format4(value) {
+  // AAAA-MM-JJ HH:mm:ss
+  const match = String(value || '').trim().match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})$/)
+  if (!match) return null
+  return match[1]
+}
+
+export function format5(value) {
+  // YYYY-MM-DDTHH:mm:ss
+  const match = String(value || '').trim().match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})$/)
+  if (!match) return null
+  return match[1]
+}
+
+export function isPositif(items, lineLabel = '') {
+  if (!Array.isArray(items)) return
+  for (const item of items) {
+    const name = String(item?.name || 'valeur')
+    const value = Number(item?.value)
+    if (!Number.isFinite(value)) continue
+    if (value < 0) {
+      const lineInfo = lineLabel ? ` (ligne ${lineLabel})` : ''
+      throw new Error(`Valeur negative: ${name}${lineInfo}`)
+    }
+  }
+}
 // ==========================
 // CONFIG FETCH
 // ==========================

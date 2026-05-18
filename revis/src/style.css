@@ -309,3 +309,13 @@ code {
     border-right-color: var(--border);
   }
 }
+table {
+  counter-reset: rowNumber;
+}
+
+table tr > td:first-child::before {
+  display: table-cell;
+  counter-increment: rowNumber;
+  content: counter(rowNumber);
+  padding-right: 0.5em;
+}

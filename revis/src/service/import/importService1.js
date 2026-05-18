@@ -1,36 +1,13 @@
 import { getAllCategories, createCategory } from '../categorieService.js'
 import { getAllTaxes, getAllTaxRuleGroups, createFullTax } from '../taxeService.js'
 import { createProduct } from '../productService.js'
+import { normalizeAvailableDate, isPositif } from '../../api/util.js'
 import Papa from 'papaparse'
 
 function parseNumber(str) {
   if (!str) return 0
   let cleanStr = String(str).replace('%', '').replace(',', '.').trim()
   return parseFloat(cleanStr) || 0
-}
-
-function normalizeAvailableDate(value) {
-  const raw = String(value || '').trim()
-
-  if (!raw) return null
-
-  // format JJ/MM/AAAA
-  const frMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
-
-  if (frMatch) {
-    const [, day, month, year] = frMatch
-
-    return `${year}-${month}-${day}`
-  }
-
-  // format ISO
-  const isoMatch = raw.match(/^\d{4}-\d{2}-\d{2}$/)
-
-  if (isoMatch) {
-    return raw
-  }
-
-  return null
 }
 
 export async function importDataFromCSV(csvText) {
@@ -99,6 +76,16 @@ export async function importDataFromCSV(csvText) {
     const taxe_str = row.Taxe || '0'
     const categorie_nom = row.categorie || ''
     const prix_achat = row.prix_achat || '0'
+
+    const prix_ttc = parseNumber(prix_ttc_str)
+    const taxRate = parseNumber(taxe_str)
+    const prix_achat_num = parseNumber(prix_achat)
+
+    isPositif([
+      { name: 'prix_ttc', value: prix_ttc },
+      { name: 'Taxe', value: taxRate },
+      { name: 'prix_achat', value: prix_achat_num }
+    ], i + 1)
 
     try {
       // 1. Gestion de la Catégorie

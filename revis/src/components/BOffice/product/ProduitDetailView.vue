@@ -2,8 +2,10 @@
 import { ref, watchEffect } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { getProductDetail, updateProduct } from '../../../service/productService.js'
-import { getStockDetail, updateStock, getAllStocks } from '../../../service/stockService.js'
+import { getStockDetail, getAllStocks as getAllStockAvailables } from '../../../service/stockAvailableService.js'
 import { getCombinationsByProduct, updateCombination } from '../../../service/combinationService.js'
+import { getAllStocks as getAllPhysicalStocks } from '../../../service/stockService.js'
+import { createStockMvt } from '../../../service/stockMvtService.js'
 import { uploadImage, getImageUrl } from '../../../service/imageService.js'
 import Editor from '@tinymce/tinymce-vue'
 
@@ -21,6 +23,8 @@ const selectedFiles = ref([])
 
 // Pour le stock principal du produit
 const productStockAdjustment = ref(0)
+const productStockBefore = ref(0)
+const productSaveClicks = ref(0)
 
 function parseNumberInput(value, fallback = 0) {
   const num = Number(String(value ?? '').replace(',', '.'))
@@ -61,6 +65,7 @@ watchEffect(async () => {
   successMsg.value = ''
   selectedFiles.value = []
   productStockAdjustment.value = 0
+  productSaveClicks.value = 0
 
   try {
     const data = await getProductDetail(id)
@@ -73,11 +78,12 @@ watchEffect(async () => {
     }
 
     product.value = { ...data, active: data.active === '1', quantity: stockQuantity }
+    productStockBefore.value = stockQuantity
 
     combinationsLoading.value = true
     const [combList, stockList] = await Promise.all([
       getCombinationsByProduct(id),
-      getAllStocks({ filters: { id_product: id } })
+      getAllStockAvailables({ filters: { id_product: id } })
     ])
 
     combinations.value = combList.map((comb) => {
@@ -92,6 +98,7 @@ watchEffect(async () => {
         minimal_quantity: parseNumberInput(comb.minimal_quantity, 1),
         price: parseNumberInput(comb.price, 0),
         quantity: parseNumberInput(stock?.quantity, 0),
+        beforeQuantity: parseNumberInput(stock?.quantity, 0),
         weight: parseNumberInput(comb.weight, 0),
         available_date: comb.available_date || '',
         default_on: !!comb.default_on,
@@ -114,18 +121,35 @@ async function onUpdate() {
   try {
     error.value = ''
     successMsg.value = ''
+
     loading.value = true
 
     // Mise a jour classique du produit
     await updateProduct(product.value.id, product.value)
 
-    if (product.value.stockAvailableId) {
-      await updateStock(product.value.stockAvailableId, {
-        id_product: product.value.id,
-        quantity: product.value.quantity,
-        depends_on_stock: 0,
-        out_of_stock: 2
+    const productDiff = Number(product.value.quantity || 0) - Number(productStockBefore.value || 0)
+    if (productDiff !== 0) {
+      const phys = await getAllPhysicalStocks({
+        filters: { id_product: product.value.id, id_product_attribute: 0 }
       })
+      const stock = Array.isArray(phys) && phys.length ? phys[0] : null
+      if (stock?.id) {
+        await createStockMvt({
+          id_product: product.value.id,
+          id_product_attribute: 0,
+          id_stock: stock.id,
+          price_te: product.value.price || 0,
+          physical_quantity: Math.abs(productDiff),
+          id_employee: 1,
+          id_stock_mvt_reason: productDiff < 0 ? 2 : 1,
+          date_add: new Date().toISOString().slice(0, 19).replace('T', ' '),
+          sign: productDiff < 0 ? -1 : 1,
+          stockAvailableId: product.value.stockAvailableId,
+          stockAvailableQuantity: Number(product.value.quantity || 0)
+        })
+      } else {
+        throw new Error('Stock physique introuvable pour le produit')
+      }
     }
 
     // Si de nouvelles images ont ete selectionnees, les uploader sur ce produit
@@ -145,6 +169,11 @@ async function onUpdate() {
     }
 
     productStockAdjustment.value = 0
+    productSaveClicks.value += 1
+    if (productSaveClicks.value >= 2) {
+      productStockBefore.value = Number(product.value.quantity) || 0
+      productSaveClicks.value = 0
+    }
     successMsg.value = 'Produit modifie avec succes !'
   } catch (e) {
     error.value = e?.message || String(e)
@@ -158,9 +187,10 @@ async function onUpdateCombination(index) {
   if (!row || !product.value?.id) return
 
   row.error = ''
-  row.saving = true
   successMsg.value = ''
   error.value = ''
+
+  row.saving = true
 
   try {
     await updateCombination(row.id, {
@@ -175,17 +205,37 @@ async function onUpdateCombination(index) {
       associations: row.associations || undefined
     })
 
-    if (row.stockId) {
-      await updateStock(row.stockId, {
-        id_product: product.value.id,
-        id_product_attribute: row.id,
-        quantity: parseNumberInput(row.quantity, 0),
-        depends_on_stock: 0,
-        out_of_stock: 2
+    const combDiff = parseNumberInput(row.quantity, 0) - parseNumberInput(row.beforeQuantity, 0)
+    if (combDiff !== 0) {
+      const phys = await getAllPhysicalStocks({
+        filters: { id_product: product.value.id, id_product_attribute: row.id }
       })
+      const stock = Array.isArray(phys) && phys.length ? phys[0] : null
+      if (stock?.id) {
+        await createStockMvt({
+          id_product: product.value.id,
+          id_product_attribute: row.id,
+          id_stock: stock.id,
+          price_te: row.price || product.value.price || 0,
+          physical_quantity: Math.abs(combDiff),
+          id_employee: 1,
+          id_stock_mvt_reason: combDiff < 0 ? 2 : 1,
+          date_add: new Date().toISOString().slice(0, 19).replace('T', ' '),
+          sign: combDiff < 0 ? -1 : 1,
+          stockAvailableId: row.stockId,
+          stockAvailableQuantity: parseNumberInput(row.quantity, 0)
+        })
+      } else {
+        throw new Error('Stock physique introuvable pour la declinaison')
+      }
     }
 
     row.adjustment = 0
+    row.saveClicks = (row.saveClicks || 0) + 1
+    if (row.saveClicks >= 2) {
+      row.beforeQuantity = parseNumberInput(row.quantity, 0)
+      row.saveClicks = 0
+    }
     successMsg.value = `Declinaison ${row.reference || '#' + row.id} mise a jour avec succes !`
   } catch (e) {
     row.error = e?.message || String(e)
@@ -230,6 +280,7 @@ async function onUpdateCombination(index) {
 
           <div class="form-group">
             <label class="form-label">Quantite en Stock</label>
+            <p class="hint-msg">Avant: {{ productStockBefore }}</p>
             <div class="stock-input-wrapper">
               <input v-model.number="product.quantity" type="number" class="form-control" />
 
@@ -293,6 +344,7 @@ async function onUpdateCombination(index) {
             <button type="submit" class="btn btn-primary" :disabled="loading">
               {{ loading ? 'Enregistrement...' : 'Mettre a jour' }}
             </button>
+            <span class="hint-msg" style="margin-left: 10px;">Clique: {{ productSaveClicks }}/2</span>
           </div>
         </form>
       </div>
@@ -317,6 +369,7 @@ async function onUpdateCombination(index) {
 
               <div>
                 <label class="form-label">Stock (id: {{ comb.stockId }})</label>
+                <p class="hint-msg">Avant: {{ comb.beforeQuantity }}</p>
                 <input v-model.number="comb.quantity" type="number" class="form-control" />
               </div>
             </div>
@@ -348,6 +401,7 @@ async function onUpdateCombination(index) {
               >
                 {{ comb.saving ? 'Sauvegarde...' : 'Sauvegarder declinaison' }}
               </button>
+              <span class="hint-msg" style="margin-left: 10px;">Clique: {{ comb.saveClicks || 0 }}/2</span>
             </div>
           </div>
         </div>

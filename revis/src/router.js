@@ -32,6 +32,8 @@ import DashboardView from './components/BOffice/DashboardView.vue'
 import ListLoginView from './components/FOffice/ListLoginView.vue'
 import OrderListFOfficeView from './components/FOffice/OrderListView.vue'
 import OrderDetailFOfficeView from './components/FOffice/OrderDetailView.vue'
+import CombinationCreateView from './components/BOffice/combination/CombinationCreateView.vue'
+import StockMovementView from './components/BOffice/stock/StockMovementView.vue'
 
 const routes = [
   {
@@ -53,6 +55,11 @@ const routes = [
     path: '/products/create',
     name: 'product-create',
     component: CreateProduitView,
+  },
+  {
+    path: '/combinations/create',
+    name: 'combination-create',
+    component: CombinationCreateView,
   },
   {
     path: '/product/:id',
@@ -198,6 +205,11 @@ const routes = [
     path: '/dashboard',
     name: 'dashboard',
     component: DashboardView,
+  }
+  ,{
+    path: '/stock-movements',
+    name: 'stock-movements',
+    component: StockMovementView,
   }
 ]
 

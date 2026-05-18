@@ -1,100 +1,155 @@
 import { get, post, xmlToJson, jsonToXml } from '../api/util.js'
-import { toLanguage, toText } from '../api/util.js'
+import { toLanguage } from '../api/util.js'
+import { createStock } from './stockService.js'
 
 // ==========================================
-// MÉTHODES CRUD POUR PRODUCT OPTIONS (Groupes d'attributs)
+// PRODUCT OPTIONS (groupes d'attributs)
 // ==========================================
 
 export async function createProductOption(data) {
+  if (!data.name) throw new Error("name requis pour product option")
+
   const optionObj = {
     is_color_group: data.is_color_group ? 1 : 0,
     group_type: data.group_type || 'select',
-    position: data.position || 0,
+    position: data.position ?? 0,
     name: toLanguage(data.name),
     public_name: toLanguage(data.public_name || data.name)
   }
 
-  const xmlRequest = jsonToXml({ prestashop: { product_option: optionObj } })
+  const xmlRequest = jsonToXml({
+    prestashop: {
+      product_option: optionObj
+    }
+  })
 
   const xmlResponse = await post({
     resource: 'product_options',
     body: xmlRequest
   })
+
   return xmlToJson(xmlResponse)
 }
 
 export async function getAllProductOptions() {
-  const xml = await get({ resource: 'product_options' })
+  const xml = await get({
+    resource: 'product_options',
+    query: { display: 'full' }
+  })
+
   const json = xmlToJson(xml)
-  return json?.prestashop?.product_options?.product_option || []
+  const data = json?.prestashop?.product_options?.product_option
+
+  if (!data) return []
+  return Array.isArray(data) ? data : [data]
 }
 
-
 // ==========================================
-// MÉTHODES CRUD POUR PRODUCT OPTION VALUES (Valeurs d'attributs)
+// PRODUCT OPTION VALUES (valeurs attributs)
 // ==========================================
 
 export async function createProductOptionValue(data) {
-  if (!data.id_attribute_group) throw new Error("id_attribute_group est requis pour créer une valeur d'attribut")
+  if (!data.id_attribute_group) {
+    throw new Error("id_attribute_group requis")
+  }
 
   const valueObj = {
     id_attribute_group: data.id_attribute_group,
-    position: data.position || 0,
+    position: data.position ?? 0,
     name: toLanguage(data.name)
   }
-  
+
   if (data.color) {
-      valueObj.color = data.color
+    valueObj.color = data.color
   }
 
-  const xmlRequest = jsonToXml({ prestashop: { product_option_value: valueObj } })
+  const xmlRequest = jsonToXml({
+    prestashop: {
+      product_option_value: valueObj
+    }
+  })
 
   const xmlResponse = await post({
     resource: 'product_option_values',
     body: xmlRequest
   })
+
   return xmlToJson(xmlResponse)
 }
 
 export async function getAllProductOptionValues() {
-  const xml = await get({ resource: 'product_option_values' })
+  const xml = await get({
+    resource: 'product_option_values',
+    query: { display: 'full' }
+  })
+
   const json = xmlToJson(xml)
-  return json?.prestashop?.product_option_values?.product_option_value || []
+  const data = json?.prestashop?.product_option_values?.product_option_value
+
+  if (!data) return []
+  return Array.isArray(data) ? data : [data]
 }
 
-
 // ==========================================
-// MÉTHODES CRUD POUR COMBINATIONS (Déclinaisons)
+// COMBINATIONS (déclinaisons)
 // ==========================================
 
 export async function createCombination(data) {
-  if (!data.id_product) throw new Error("id_product est requis pour créer une déclinaison")
-  if (!data.product_option_value_ids || data.product_option_value_ids.length === 0) {
-      throw new Error("Au moins une valeur d'attribut (product_option_value_ids) est requise")
+  if (!data.id_product) {
+    throw new Error("id_product requis")
+  }
+
+  if (!data.product_option_value_ids?.length) {
+    throw new Error("product_option_value_ids requis")
   }
 
   const combinationObj = {
     id_product: data.id_product,
     reference: data.reference || '',
-    price: data.price || 0, // Impact sur le prix
-    weight: data.weight || 0,
-    minimal_quantity: data.minimal_quantity || 1,
-    quantity: data.quantity || 0, // Bien que souvent géré via stock_availables
+    price: data.price ?? 0,
+    weight: data.weight ?? 0,
+    wholesale_price: data.wholesale_price ?? 0,
+    minimal_quantity: data.minimal_quantity ?? 1,
     default_on: data.default_on ? 1 : 0
   }
 
-  // Ajout des valeurs d'attributs via associations
+  // ⚠️ IMPORTANT: ne PAS mettre quantity ici (PrestaShop ignore ou casse parfois)
+  // stock géré via stock_availables / stocks
+
   combinationObj.associations = {
     product_option_values: {
-      product_option_value: data.product_option_value_ids.map(id => ({ id }))
+      product_option_value: data.product_option_value_ids.map(id => ({
+        id: String(id)
+      }))
     }
   }
 
-  const xmlRequest = jsonToXml({ prestashop: { combination: combinationObj } })
+  const xmlRequest = jsonToXml({
+    prestashop: {
+      combination: combinationObj
+    }
+  })
 
   const xmlResponse = await post({
     resource: 'combinations',
     body: xmlRequest
   })
-  return xmlToJson(xmlResponse)
+
+  const response = xmlToJson(xmlResponse)
+  const id_product_attribute = response?.prestashop?.combination?.id
+
+  // Création du stock physique si demandé
+  if (id_product_attribute && data.createStock) {
+    await createStock({
+      id_warehouse: data.id_warehouse ?? 1,
+      id_product: data.id_product,
+      id_product_attribute,
+      physical_quantity: data.quantity ?? 0,
+      usable_quantity: data.quantity ?? 0,
+      price_te: data.price ?? 0,
+      reference: data.reference || ''
+    })
+  }
+
+  return response
 }

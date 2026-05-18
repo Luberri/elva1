@@ -1,14 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import {
-	createOrder,
-	createOrderHistory,
-	deleteOrder,
-	getAllOrders,
-	getAllOrderStates,
-	isCartOrdered,
-} from '../../../service/orderService.js'
+import {createOrder,createOrderHistory,deleteOrder,getAllOrders,getAllOrderStates,isCartOrdered} from '../../../service/orderService.js'
 import { getAllCustomers } from '../../../service/customerService.js'
 import { getAllCarts } from '../../../service/cartService.js'
 import { getAllProducts, getPriceTtcWithImpact, parsePriceValue } from '../../../service/productService.js'
