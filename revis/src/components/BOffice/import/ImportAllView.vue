@@ -28,7 +28,15 @@
     </div>
 
     <div v-if="error" class="alert alert-danger mt-3">
-      <p>{{ error }}</p>
+      <p>Erreur: {{ error.message || error }}</p>
+      <template v-if="error.line">
+        <p>Ligne: <strong>{{ error.line }}</strong></p>
+      </template>
+      <template v-if="error.details && error.details.length">
+        <ul>
+          <li v-for="(d, i) in error.details" :key="i">{{ d }}</li>
+        </ul>
+      </template>
       <button @click="handleReset" :disabled="resetting" class="btn btn-secondary mt-3">
         {{ resetting ? 'Reset en cours...' : 'Reset' }}
       </button>
@@ -51,6 +59,24 @@
         <p>Images - Ignorees: <strong>{{ result.images?.skipped ?? 0 }}</strong></p>
         <p v-if="result.images?.missing?.length">Images - Sans produit: <strong>{{ result.images.missing.length }}</strong></p>
         <p v-if="result.images?.errors?.length">Images - Erreurs: <strong>{{ result.images.errors.length }}</strong></p>
+      </template>
+      <template v-if="result.csv1?.errors?.length">
+        <h4>Erreurs CSV1</h4>
+        <ul>
+          <li v-for="(e, i) in result.csv1.errors" :key="i">{{ e }}</li>
+        </ul>
+      </template>
+      <template v-if="result.csv2?.errors?.length">
+        <h4>Erreurs CSV2</h4>
+        <ul>
+          <li v-for="(e, i) in result.csv2.errors" :key="i">{{ e }}</li>
+        </ul>
+      </template>
+      <template v-if="result.csv3?.errors?.length">
+        <h4>Erreurs CSV3</h4>
+        <ul>
+          <li v-for="(e, i) in result.csv3.errors" :key="i">{{ e }}</li>
+        </ul>
       </template>
     </div>
   </div>
@@ -106,8 +132,12 @@ const startImport = async () => {
     })
 
     result.value = res
-  } catch (err) {
-    error.value = "Erreur lors de l'import : " + (err?.message || String(err))
+    } catch (err) {
+    if (err && typeof err === 'object') {
+      error.value = err
+    } else {
+      error.value = { message: String(err) }
+    }
   } finally {
     loading.value = false
   }
@@ -118,7 +148,7 @@ const handleReset = async () => {
   try {
     await resetAllData()
   } catch (err) {
-    error.value = 'Erreur reset : ' + (err?.message || String(err))
+    error.value = { message: 'Erreur reset : ' + (err?.message || String(err)) }
   } finally {
     resetting.value = false
   }

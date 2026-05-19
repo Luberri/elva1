@@ -159,6 +159,7 @@ export async function importDataFromCSV3(csvText) {
       const pwd = String(row.pwd || '').trim()
       const adresse = String(row.adresse || '').trim()
       const etat = String(row.etat || '').trim()
+
       ensureAllowedState(etat)
 
       if (!dateRaw || !nom || !email || !pwd || !adresse) {
@@ -317,7 +318,7 @@ export async function importDataFromCSV3(csvText) {
       }
     } catch (err) {
       const rowInfo = JSON.stringify(row)
-      throw new Error(`Erreur ligne ${i + 1} : ${err.message}. Ligne: ${rowInfo}`)
+      throw new Error(`Erreur ligne ${row.__line || i + 1} : ${err.message}. Ligne: ${rowInfo}`)
     }
   }
 

@@ -193,7 +193,7 @@ export async function importDataFromCSV2(csvText) {
       const product = productMap.get(reference)
 
       if (!product) {
-        throw new Error(`Produit introuvable: ${reference}`)
+        throw new Error(`Ligne ${i + 1} : Produit introuvable: ${reference}`)
       }
 
       const id_product = product.id

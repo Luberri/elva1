@@ -72,7 +72,6 @@ export async function importDataFromCSV(csvText) {
   for (let i = 0; i < records.length; i++) {
     const row = records[i]
     if (!row.nom) {
-      // ne pas continuer si le nom du produit est manquant, c'est un champ critique
       throw new Error(`Ligne ${i + 1} : le champ "nom" est obligatoire.`)
     }
 
