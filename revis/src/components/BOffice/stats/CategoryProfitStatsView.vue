@@ -146,7 +146,7 @@ async function load() {
         const productId = String(r.product_id || r.id_product || '').trim()
         const attrId = String(r.product_attribute_id || r.id_product_attribute || '0').trim() || '0'
         if (!productId) continue
-        if (attrId !== '0') productIdsNeedingCombinations.add(productId)
+        productIdsNeedingCombinations.add(productId)
       }
     }
 
@@ -196,6 +196,16 @@ function getWholesalePrice(productId, productAttributeId) {
   }
 
   return toNumber(product?.wholesale_price)
+}
+
+function getStockMovementPurchasePrice(mvt) {
+  const productId = String(mvt?.id_product || '').trim()
+  const attrId = String(mvt?.id_product_attribute || '0').trim() || '0'
+  const unit = getWholesalePrice(productId, attrId)
+  if (Number.isFinite(unit) && unit > 0) {
+    return unit
+  }
+  return toNumber(mvt?.price_te)
 }
 
 const computedRows = computed(() => {
@@ -272,7 +282,7 @@ const summary = computed(() => {
       const categoryId = String(product?.categorieId || '').trim()
       if (!categoryId || categoryId !== selectedCategory) continue
     }
-    const unit = toNumber(mvt?.price_te)
+    const unit = getStockMovementPurchasePrice(mvt)
     const qty = Number(mvt?.physical_quantity || 0)
     if (!Number.isFinite(qty) || qty <= 0) continue
     totalStockPurchaseHt += unit * qty

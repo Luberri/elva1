@@ -313,8 +313,6 @@ export async function importDataFromCSV3(csvText) {
         })
 
         await updateOrderDates(orderId, dateAdd)
-
-        await getOrderDetail(orderId)
       }
     } catch (err) {
       const rowInfo = JSON.stringify(row)
