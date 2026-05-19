@@ -607,9 +607,9 @@ export async function createOrder(data) {
         available = 0
       }
 
-      if (qtyRequested > available && !isStockAvailableRestoreState(preRequestedState)) {
-        throw new Error(`Stock insuffisant pour produit ${id_product} attr ${id_product_attribute} : demandé ${qtyRequested}, disponible ${available}`)
-      }
+      // if (qtyRequested > available && !isStockAvailableRestoreState(preRequestedState)) {
+      //   throw new Error(`Stock insuffisant pour produit ${id_product} attr ${id_product_attribute} : demandé ${qtyRequested}, disponible ${available}`)
+      // }
     }
   }
 
