@@ -70,6 +70,7 @@
             <th>Quantite</th>
             <th>Prix TTC</th>
             <th>Total TTC</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -79,6 +80,11 @@
             <td>{{ row.quantity }}</td>
             <td>{{ getRowPriceTtc(row) }}</td>
             <td>{{ getRowTotalTtc(row) }}</td>
+            <td>
+              <button class="btn btn-secondary" :disabled="ordering" @click="handleRemoveRow(row)">
+                Supprimer
+              </button>
+            </td>
           </tr>
         </tbody>
         <tfoot>
@@ -414,6 +420,44 @@ async function handleClearCart() {
 
     cart.value = await getCartDetail(cart.value.id)
     orderMessage.value = 'Panier vide.'
+  } catch (e) {
+    error.value = e?.message || String(e)
+  } finally {
+    ordering.value = false
+  }
+}
+
+async function handleRemoveRow(row) {
+  error.value = ''
+  orderMessage.value = ''
+
+  if (!cart.value?.id) {
+    error.value = 'Panier introuvable'
+    return
+  }
+
+  ordering.value = true
+  try {
+    const rows = Array.isArray(cart.value.cartRows) ? [...cart.value.cartRows] : []
+    const targetProductId = String(row?.id_product || '')
+    const targetAttrId = String(row?.id_product_attribute || 0)
+    const nextRows = rows.filter(r => {
+      const productId = String(r?.id_product || '')
+      const attrId = String(r?.id_product_attribute || 0)
+      return !(productId === targetProductId && attrId === targetAttrId)
+    })
+
+    await updateCart(cart.value.id, {
+      id_currency: cart.value.id_currency || DEFAULT_CURRENCY_ID,
+      id_lang: cart.value.id_lang || 1,
+      id_customer: cart.value.id_customer || undefined,
+      id_address_delivery: cart.value.id_address_delivery || undefined,
+      id_address_invoice: cart.value.id_address_invoice || undefined,
+      cartRows: nextRows
+    })
+
+    cart.value = await getCartDetail(cart.value.id)
+    orderMessage.value = 'Produit supprime du panier.'
   } catch (e) {
     error.value = e?.message || String(e)
   } finally {

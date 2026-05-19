@@ -24,6 +24,10 @@ function toggleSidebar() {
           <span class="icon">📦</span>
           <span>Produits</span>
         </RouterLink>
+        <RouterLink to="/stats/category-profit">
+          <span class="icon"></span>
+          <span>Stats catégories</span>
+        </RouterLink>
         <RouterLink to="/combinations/create">
           <span class="icon">🧩</span>
           <span>Declinaisons</span>
@@ -47,6 +51,10 @@ function toggleSidebar() {
         <RouterLink to="/carts">
           <span class="icon">🧺</span>
           <span>Paniers</span>
+        </RouterLink>
+        <RouterLink to="/stock-by-product-declination">
+          <span class="icon">📈</span>
+          <span>Stock declinaisons</span>
         </RouterLink>
       </nav>
     </aside>

@@ -34,6 +34,9 @@ import OrderListFOfficeView from './components/FOffice/OrderListView.vue'
 import OrderDetailFOfficeView from './components/FOffice/OrderDetailView.vue'
 import CombinationCreateView from './components/BOffice/combination/CombinationCreateView.vue'
 import StockMovementView from './components/BOffice/stock/StockMovementView.vue'
+import StockByCategoryView from './components/BOffice/stock/StockByCategoryView.vue'
+import StockByProductDeclinationView from './components/BOffice/stock/StockByProductDeclinationView.vue'
+import CategoryProfitStatsView from './components/BOffice/stats/CategoryProfitStatsView.vue'
 
 const routes = [
   {
@@ -210,6 +213,21 @@ const routes = [
     path: '/stock-movements',
     name: 'stock-movements',
     component: StockMovementView,
+  }
+  ,{
+    path: '/stock-by-category',
+    name: 'stock-by-category',
+    component: StockByCategoryView,
+  }
+  ,{
+    path: '/stock-by-product-declination',
+    name: 'stock-by-product-declination',
+    component: StockByProductDeclinationView,
+  }
+  ,{
+    path: '/stats/category-profit',
+    name: 'stats-category-profit',
+    component: CategoryProfitStatsView,
   }
 ]
 

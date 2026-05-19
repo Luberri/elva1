@@ -198,10 +198,12 @@ export async function createCombination(data) {
     await createStockAv({
       id_product: data.id_product,
       id_product_attribute: combId,
-      physical_quantity: data.quantity ?? 0,
-      usable_quantity: data.quantity ?? 0,
-      price_te: data.price ?? 0,
-      reference: data.reference || ''
+      quantity: data.quantity ?? 0,
+      // Par défaut, on dépend du stock physique (cohérent avec stocks + stock_movements)
+      depends_on_stock: data.depends_on_stock !== undefined ? data.depends_on_stock : 1,
+      out_of_stock: data.out_of_stock !== undefined ? data.out_of_stock : 2,
+      id_shop: data.id_shop,
+      id_shop_group: data.id_shop_group
     })
   }
 

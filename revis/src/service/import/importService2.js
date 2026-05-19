@@ -1,5 +1,5 @@
 import Papa from 'papaparse'
-import { get, xmlToJson, toText, isPositif } from '../../api/util.js'
+import { isPositif } from '../../api/util.js'
 import { getAllProducts, hasCombination } from '../productService.js'
 import {
   getAllProductOptions,
@@ -9,10 +9,9 @@ import {
   createCombination
 } from '../declinaisonService.js'
 
-import { updateStockAv, getStockDetail } from '../stockAvailableService.js'
+import { updateStockAv, getAllStocks as getAllStockAvailables } from '../stockAvailableService.js'
 import { createStock } from '../stockService.js'
 import { getTaxRateForGroup } from '../taxeService.js'
-import { createStockMvt } from '../stockMvtService.js'
 
 /* =========================
    SAFE NORMALIZER (IMPORTANT)
@@ -39,7 +38,7 @@ function normalizeText(value) {
 
 function parseNumber(str) {
   if (!str) return 0
-  return parseFloat(String(str).replace('%', '').replace(',', '.').trim()) || 0
+  return parseFloat(String(str).replace(/"/g, '').replace('%', '').replace(',', '.').trim()) || 0
 }
 
 const DEFAULT_WAREHOUSE_ID = 1
@@ -112,6 +111,30 @@ export async function importDataFromCSV2(csvText) {
       productMap.set(p.reference.trim(), p)
     }
   })
+
+  /* =========================
+     STOCK AVAILABLE MAP (avoid per-row product fetch)
+  ========================= */
+  const stockAvailables = await getAllStockAvailables({ filters: {}, display: 'full' })
+  const stockAvailableMap = new Map()
+  for (const s of (Array.isArray(stockAvailables) ? stockAvailables : [])) {
+    const productId = String(s.id_product || '').trim()
+    if (!productId) continue
+    const attrId = String(s.id_product_attribute || '0').trim() || '0'
+    stockAvailableMap.set(`${productId}::${attrId}`, s)
+  }
+
+  /* =========================
+     HAS COMBINATION CACHE (avoid repeated API calls)
+  ========================= */
+  const hasCombinationCache = new Map()
+  async function getHasCombinationCached(productId) {
+    const key = String(productId)
+    if (hasCombinationCache.has(key)) return hasCombinationCache.get(key)
+    const value = await hasCombination(productId)
+    hasCombinationCache.set(key, !!value)
+    return !!value
+  }
 
   /* =========================
      OPTIONS MAP
@@ -266,58 +289,56 @@ export async function importDataFromCSV2(csvText) {
         }
       }
 
-      /* =========================
-         STOCK AVAILABLE SYNC
-      ========================= */
-      const productXml = await get({ resource: 'products', id: id_product })
-      const productJson = xmlToJson(productXml)
-
-      const stocks =
-        productJson?.prestashop?.product?.associations?.stock_availables?.stock_available
-
-      let stockId = null
-
-      if (stocks) {
-        const list = Array.isArray(stocks) ? stocks : [stocks]
-
-        for (const s of list) {
-          const attr = toText(s.id_product_attribute) || '0'
-
-          if (String(attr) === String(id_product_attribute)) {
-            stockId = toText(s.id)
-            break
+      // La map stockAvailableMap a été chargée AVANT la création de la déclinaison.
+      // On recharge le stock_available si nécessaire pour éviter "Stock introuvable".
+      if (id_product_attribute) {
+        const createdKey = `${String(id_product)}::${String(id_product_attribute)}`
+        if (!stockAvailableMap.get(createdKey)) {
+          try {
+            const latest = await getAllStockAvailables({
+              filters: { id_product, id_product_attribute },
+              display: 'full'
+            })
+            const latestOne = Array.isArray(latest) && latest.length ? latest[0] : null
+            if (latestOne?.id) {
+              stockAvailableMap.set(createdKey, latestOne)
+            }
+          } catch (e) {
+            console.error('Erreur reload stock_available après création déclinaison:', e?.message || e)
           }
         }
       }
 
-      if (stockId) {
+      /* =========================
+         STOCK AVAILABLE SYNC
+      ========================= */
+      const stockKey = `${String(id_product)}::${String(id_product_attribute || 0)}`
+      const stockAv = stockAvailableMap.get(stockKey)
 
-        const realStock = await getStockDetail(stockId)
-
-        await updateStockAv(stockId, {
+      if (!stockAv?.id) {
+        results.errors.push(`Stock introuvable pour ${reference} attr ${id_product_attribute}`)
+      } else {
+        await updateStockAv(stockAv.id, {
           id_product,
           id_product_attribute,
           quantity: stock_initial,
-          depends_on_stock: realStock?.depends_on_stock || 0,
-          out_of_stock: realStock?.out_of_stock || 2,
-          id_shop: realStock?.id_shop || 1,
-          id_shop_group: realStock?.id_shop_group || 0,
+          depends_on_stock: 0,
+          out_of_stock: stockAv?.out_of_stock || 2,
+          id_shop: stockAv?.id_shop || 1,
+          id_shop_group: stockAv?.id_shop_group || 0,
           product_name: product?.name || '',
           reference: product?.reference || ''
         })
 
+        // Keep local cache in sync
+        stockAvailableMap.set(stockKey, { ...stockAv, quantity: String(stock_initial) })
         results.stocksUpdated++
-
-      } else {
-        results.errors.push(
-          `Stock introuvable pour ${reference} attr ${id_product_attribute}`
-        )
       }
 
       /* =========================
          SIMPLE STOCK (no combination)
       ========================= */
-      const hasDeclinaison = await hasCombination(id_product)
+      const hasDeclinaison = await getHasCombinationCached(id_product)
 
       if (!hasDeclinaison && stock_initial > 0) {
 

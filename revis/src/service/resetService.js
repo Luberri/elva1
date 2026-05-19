@@ -145,12 +145,7 @@ export async function resetAllData() {
 
     'tax_rules',
     'tax_rule_groups',
-    'taxes',
-
-    'addresses',
-    'guests',
-    'customers',
-    'groups'
+    'taxes'
   ]
 
   for (const resource of resourcesToDelete) {

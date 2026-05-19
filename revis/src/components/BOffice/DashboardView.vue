@@ -136,7 +136,7 @@ async function loadOrders() {
 
 const activeOrders = computed(() =>
   (Array.isArray(orders.value) ? orders.value : []).filter(
-    (order) => String(order?.current_state || '') === '2'
+    (order) => String(order?.current_state || '') === '2' || String(order?.current_state || '') === '4' || String(order?.current_state || '') === '5'
   )
 )
 const orderEntries = computed(() =>

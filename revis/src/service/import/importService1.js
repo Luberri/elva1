@@ -1,12 +1,16 @@
 import { getAllCategories, createCategory } from '../categorieService.js'
-import { getAllTaxes, getAllTaxRuleGroups, createFullTax } from '../taxeService.js'
+import { getAllTaxRuleGroups, createFullTax } from '../taxeService.js'
 import { createProduct } from '../productService.js'
 import { normalizeAvailableDate, isPositif } from '../../api/util.js'
 import Papa from 'papaparse'
 
 function parseNumber(str) {
   if (!str) return 0
-  let cleanStr = String(str).replace('%', '').replace(',', '.').trim()
+  let cleanStr = String(str)
+    .replace(/"/g, '')
+    .replace('%', '')
+    .replace(',', '.')
+    .trim()
   return parseFloat(cleanStr) || 0
 }
 
@@ -32,7 +36,7 @@ export async function importDataFromCSV(csvText) {
     throw new Error(`Colonnes manquantes: ${missingColumns.join(', ')}`)
   }
 
-  const records = parsed.data
+  const records = (parsed.data || []).map((row) => normalizePossiblySingleFieldRow(row, requiredColumns))
   if (records.length === 0) throw new Error("Le fichier CSV est vide ou n'a pas de données valides.")
 
   // 1. Récupération de l'existant pour éviter les doublons
@@ -67,7 +71,10 @@ export async function importDataFromCSV(csvText) {
 
   for (let i = 0; i < records.length; i++) {
     const row = records[i]
-    if (!row.nom) continue // Ligne sans nom (ou incomplète)
+    if (!row.nom) {
+      // ne pas continuer si le nom du produit est manquant, c'est un champ critique
+      throw new Error(`Ligne ${i + 1} : le champ "nom" est obligatoire.`)
+    }
 
     const date_produit = normalizeAvailableDate(row.date_availability_produit)
     const nom = row.nom || ''
@@ -107,7 +114,6 @@ export async function importDataFromCSV(csvText) {
       }
 
       // 2. Gestion de la Taxe
-      const taxRate = parseNumber(taxe_str) 
       const taxGroupNameKey = getTaxGroupName(taxe_str)
       let taxRulesGroupId = null
 
@@ -131,7 +137,6 @@ export async function importDataFromCSV(csvText) {
       }
 
       // 3. Gestion du Produit
-      const prix_ttc = parseNumber(prix_ttc_str)
       const prix_ht = taxRate > 0 ? (prix_ttc / (1 + (taxRate / 100))) : prix_ttc
 
       await createProduct({
@@ -154,4 +159,47 @@ export async function importDataFromCSV(csvText) {
   }
 
   return results
+}
+
+function normalizePossiblySingleFieldRow(row, requiredColumns) {
+  // Certains fichiers CSV ont chaque ligne de données entre guillemets, ce qui fait que PapaParse
+  // parse toute la ligne dans la 1ère colonne (ex: date_availability_produit) et laisse les autres vides.
+  if (!row || typeof row !== 'object') return row
+
+  const nonEmpty = requiredColumns.filter((c) => {
+    const v = row[c]
+    return v !== undefined && v !== null && String(v).trim() !== ''
+  })
+
+  if (nonEmpty.length !== 1) return row
+
+  const rawKey = nonEmpty[0]
+  let raw = String(row[rawKey] ?? '').trim()
+  if (!raw) return row
+
+  // Si on n'a pas l'air d'avoir une ligne "condensée", on ne touche pas.
+  if (!raw.includes(',')) return row
+
+  // Nettoyage minimal des guillemets parasites en début/fin.
+  if (raw.startsWith('"') && raw.endsWith('"') && raw.length >= 2) {
+    raw = raw.slice(1, -1)
+  } else {
+    raw = raw.replace(/^"+/, '').replace(/"+$/, '')
+  }
+
+  const parsedLine = Papa.parse(raw, {
+    header: false,
+    skipEmptyLines: true,
+    delimiter: ',',
+    quoteChar: '"'
+  })
+
+  const fields = Array.isArray(parsedLine?.data) && parsedLine.data.length ? parsedLine.data[0] : null
+  if (!Array.isArray(fields) || fields.length < requiredColumns.length) return row
+
+  const out = { ...row }
+  for (let i = 0; i < requiredColumns.length; i++) {
+    out[requiredColumns[i]] = fields[i]
+  }
+  return out
 }

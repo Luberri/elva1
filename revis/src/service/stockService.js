@@ -151,7 +151,10 @@ export async function createStock(data) {
       id_stock_mvt_reason: data.id_stock_mvt_reason ?? 1,
       physical_quantity: data.physical_quantity ?? 0,
       date_add: formatDateTime(new Date()),
-      sign: 1
+      sign: 1,
+      // Le stock (stocks) vient d'être créé avec les bonnes quantités.
+      // Ce mouvement est un historique d'entrée: ne pas recalculer les quantités.
+      skipStockUpdate: true
     }
 
     // Ajouter attributs produit si fournis

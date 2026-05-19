@@ -1,11 +1,11 @@
 import Papa from 'papaparse'
-import { get, post, xmlToJson, jsonToXml, toText, DEFAULT_CURRENCY_ID, isPositif } from '../../api/util.js'
+import { DEFAULT_CURRENCY_ID, isPositif } from '../../api/util.js'
 import { getAllProducts, getPriceTtcWithImpact, parsePriceValue } from '../productService.js'
 import { getCombinationsByProduct } from '../combinationService.js'
 import { createCustomer, getCustomerByEmail, getCustomerDetail } from '../customerService.js'
 import { createAddress } from '../addressService.js'
 import { createCart, updateCartDates } from '../cartService.js'
-import { createOrderHistory, getOrderDetail, updateOrderDates } from '../orderService.js'
+import { createOrder, createOrderHistory, getOrderDetail, updateOrderDates } from '../orderService.js'
 import { getTaxRateForGroup } from '../taxeService.js'
 
 function parseAchatItems(value) {
@@ -88,38 +88,6 @@ function getPaymentFromLabel(label) {
   return { module: 'ps_wirepayment', payment: 'Payer par virement bancaire' }
 }
 
-async function createOrderWithoutState(data) {
-  const orderObj = {
-    id_address_delivery: data.id_address_delivery,
-    id_address_invoice: data.id_address_invoice,
-    id_cart: data.id_cart,
-    id_currency: data.id_currency ?? DEFAULT_CURRENCY_ID,
-    id_lang: data.id_lang || 1,
-    id_customer: data.id_customer,
-    id_carrier: data.id_carrier || 1,
-    secure_key: data.secure_key,
-    module: data.module,
-    payment: data.payment,
-    total_paid: data.total_paid,
-    total_paid_real: data.total_paid_real,
-    total_products: data.total_products,
-    total_products_wt: data.total_products_wt,
-    conversion_rate: data.conversion_rate || 1
-  }
-
-  const xmlRequest = jsonToXml({
-    prestashop: {
-      order: orderObj
-    }
-  })
-
-  const xmlResponse = await post({
-    resource: 'orders',
-    body: xmlRequest
-  })
-
-  return xmlToJson(xmlResponse)
-}
 
 export async function importDataFromCSV3(csvText) {
   const parsed = Papa.parse(csvText, {
@@ -155,6 +123,15 @@ export async function importDataFromCSV3(csvText) {
       .filter(p => p.reference)
       .map(p => [p.reference.trim().toLowerCase(), p])
   )
+
+  const combinationsCache = new Map()
+  async function getCombinationsCached(productId) {
+    const key = String(productId)
+    if (combinationsCache.has(key)) return combinationsCache.get(key)
+    const list = await getCombinationsByProduct(productId)
+    combinationsCache.set(key, list)
+    return list
+  }
 
   const taxRateMap = new Map()
   async function getTaxRateForProduct(prod) {
@@ -249,7 +226,7 @@ export async function importDataFromCSV3(csvText) {
         let combId = 0
         let priceImpact = 0
         if (variant) {
-          const combinations = await getCombinationsByProduct(product.id)
+          const combinations = await getCombinationsCached(product.id)
           const targetRef = `${ref}-${variant}`
           const comb = combinations.find(c => String(c.reference || '').trim().toLowerCase() === targetRef)
           if (!comb) throw new Error(`Declinaison introuvable: ${item.reference}-${item.variant}`)
@@ -294,12 +271,13 @@ export async function importDataFromCSV3(csvText) {
       // Keep cart date aligned with imported CSV date (same strategy as orders: PUT after create).
       await updateCartDates(cartId, dateAdd)
 
-      if (etat === null || String(etat).trim() === '') {
+      if (!etat) {
         console.log(`L${row.__line} etat vide, seulement panier créé pour ${email}`);
       } else {
         console.log(`Creation de la commande pour ${email} avec l'etat ${etat}`);
         const paymentData = getPaymentFromLabel(etat)
-        const orderRes = await createOrderWithoutState({
+        const targetState = getOrderStateIdFromLabel(etat)
+        const orderRes = await createOrder({
           id_address_delivery: addressId,
           id_address_invoice: addressId,
           id_cart: cartId,
@@ -314,7 +292,13 @@ export async function importDataFromCSV3(csvText) {
           total_paid_real: totalProductsWt.toFixed(6),
           total_products: totalProductsHt.toFixed(6),
           total_products_wt: totalProductsWt.toFixed(6),
-          conversion_rate: 1
+          conversion_rate: 1,
+          // Create order in a neutral state; stock side-effects are handled via history below.
+          current_state: 13,
+          // Stock side-effects will be handled by createOrderHistory below.
+          skipStockSideEffects: true,
+          // Allow annule orders to import even if stock is insufficient.
+          skipStockCheck: targetState === 6
         })
 
         const orderId = orderRes?.prestashop?.order?.id
@@ -323,7 +307,7 @@ export async function importDataFromCSV3(csvText) {
 
         await createOrderHistory({
           id_order: orderId,
-          id_order_state: getOrderStateIdFromLabel(etat),
+          id_order_state: targetState,
           id_employee: 1
         })
 

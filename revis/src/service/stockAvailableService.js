@@ -91,6 +91,7 @@ export async function createStockAv(data) {
 }
 
 export async function updateStockAv(id, data) {
+  console.log('StockAvvvvvv update.....', id, data)
   if (id === undefined || id === null || id === '') throw new Error('ID stock manquant pour la modification')
   
   const stockObj = {

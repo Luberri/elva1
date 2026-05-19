@@ -1,6 +1,52 @@
 import { get, post, xmlToJson, jsonToXml } from '../api/util.js'
 import { toLanguage } from '../api/util.js'
 import { createStock } from './stockService.js'
+import { createStockAv, getAllStocks as getAllStockAvailables, updateStockAv } from './stockAvailableService.js'
+
+async function ensureStockAvailableForCombination({
+  id_product,
+  id_product_attribute,
+  quantity,
+  depends_on_stock,
+  out_of_stock,
+  id_shop,
+  id_shop_group
+}) {
+  const list = await getAllStockAvailables({
+    filters: {
+      id_product: String(id_product),
+      id_product_attribute: String(id_product_attribute)
+    },
+    display: 'full'
+  })
+
+  const existing = Array.isArray(list) && list.length ? list[0] : null
+  if (existing?.id) {
+    await updateStockAv(existing.id, {
+      id_product: String(id_product),
+      id_product_attribute: String(id_product_attribute),
+      quantity: quantity ?? 0,
+      depends_on_stock: 0,
+      out_of_stock: out_of_stock !== undefined ? out_of_stock : (existing?.out_of_stock ?? 2),
+      id_shop: existing?.id_shop || id_shop || '1',
+      id_shop_group: existing?.id_shop_group || id_shop_group || '1',
+      location: existing?.location
+    })
+    return existing
+  }
+
+  const created = await createStockAv({
+    id_product: String(id_product),
+    id_product_attribute: String(id_product_attribute),
+    quantity: quantity ?? 0,
+    depends_on_stock: 0,
+    out_of_stock: out_of_stock !== undefined ? out_of_stock : 2,
+    id_shop: id_shop || '1',
+    id_shop_group: id_shop_group || '1'
+  })
+
+  return created
+}
 
 // ==========================================
 // PRODUCT OPTIONS (groupes d'attributs)
@@ -137,6 +183,24 @@ export async function createCombination(data) {
 
   const response = xmlToJson(xmlResponse)
   const id_product_attribute = response?.prestashop?.combination?.id
+
+  // IMPORTANT: s'assurer que stock_available existe pour la déclinaison et que la quantité est bien renseignée
+  if (id_product_attribute) {
+    try {
+      await ensureStockAvailableForCombination({
+        id_product: data.id_product,
+        id_product_attribute,
+        quantity: data.quantity ?? 0,
+        // Par défaut, on dépend du stock physique (cohérent avec stocks + stock_movements)
+        depends_on_stock: data.depends_on_stock !== undefined ? data.depends_on_stock : 1,
+        out_of_stock: data.out_of_stock,
+        id_shop: data.id_shop,
+        id_shop_group: data.id_shop_group
+      })
+    } catch (e) {
+      console.error('Erreur création/màj stock_available pour déclinaison:', e?.message || e)
+    }
+  }
 
   // Création du stock physique si demandé
   if (id_product_attribute && data.createStock) {

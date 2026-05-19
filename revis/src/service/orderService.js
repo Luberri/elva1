@@ -1,6 +1,6 @@
 import { get, post, put, del, xmlToJson, jsonToXml, toText, DEFAULT_CURRENCY_ID } from '../api/util.js'
 import { getCartDetail } from './cartService.js'
-import { getAllStocks as getStockAvailables } from './stockAvailableService.js'
+import { getAllStocks as getStockAvailables, createStockAv, updateStockAv } from './stockAvailableService.js'
 import { getAllStocks as getPhysicalStocks, createStock } from './stockService.js'
 import { createStockMvt, getAllStockMvts, updateStockMvtDate } from './stockMvtService.js'
 import { getProductDetail } from './productService.js'
@@ -17,6 +17,102 @@ function formatDateTime(d) {
 }
 
 const ORDER_DATE_LIMIT = new Date(2020, 4, 30)
+
+function isStockAvailableDecrementState(state) {
+  const n = Number(state)
+  return n === 2 || n === 5
+}
+
+function isStockAvailableRestoreState(state) {
+  return Number(state) === 6
+}
+
+async function decrementStockAvailableForOrder(orderId) {
+  if (!orderId) return
+  console.log('[stock_available] decrement start', { orderId: String(orderId) })
+  try {
+    const detail = await getOrderDetail(orderId)
+    const rows = detail?.orderRows || []
+
+    for (const row of rows) {
+      const id_product = String(row.product_id || row.id_product || '')
+      const id_product_attribute = String(row.product_attribute_id || row.id_product_attribute || '0')
+      const qty = Number(row.product_quantity || 0)
+      if (!id_product || !Number.isFinite(qty) || qty <= 0) continue
+
+      try {
+        const stocks = await getStockAvailables({
+          filters: { id_product, id_product_attribute },
+          display: 'full',
+          limit: 1
+        })
+        let stock = Array.isArray(stocks) && stocks.length ? stocks[0] : null
+        let stockId = stock?.id
+
+        if (!stockId) {
+          const created = await createStockAv({
+            id_product,
+            id_product_attribute,
+            quantity: 0,
+            depends_on_stock: 0,
+            out_of_stock: 2
+          })
+          stockId = created?.prestashop?.stock_available?.id
+
+          if (!stockId) {
+            const again = await getStockAvailables({
+              filters: { id_product, id_product_attribute },
+              display: 'full',
+              limit: 1
+            })
+            stock = Array.isArray(again) && again.length ? again[0] : null
+            stockId = stock?.id
+          } else {
+            stock = {
+              id: String(stockId),
+              id_product,
+              id_product_attribute,
+              id_shop: '1',
+              id_shop_group: '1',
+              quantity: '0',
+              depends_on_stock: '0',
+              out_of_stock: '2',
+              location: ''
+            }
+          }
+        }
+
+        if (!stockId) continue
+
+        const currentQty = Number(stock?.quantity || 0)
+        const nextQty = Math.max(0, (Number.isFinite(currentQty) ? currentQty : 0) - qty)
+        console.log('[stock_available] decrement', {
+          orderId: String(orderId),
+          id_product,
+          id_product_attribute,
+          qty,
+          currentQty,
+          nextQty
+        })
+
+        await updateStockAv(stockId, {
+          id_product,
+          id_product_attribute,
+          id_shop: stock?.id_shop || '1',
+          id_shop_group: stock?.id_shop_group || '1',
+          quantity: nextQty,
+          depends_on_stock: stock?.depends_on_stock !== undefined ? stock.depends_on_stock : 0,
+          out_of_stock: stock?.out_of_stock !== undefined ? stock.out_of_stock : 2,
+          location: stock?.location
+        })
+      } catch (e) {
+        console.error('Erreur maj stock_available pour ligne commande:', e?.message || e)
+      }
+    }
+  } catch (e) {
+    console.error('Erreur maj stock_available pour commande:', e?.message || e)
+  }
+}
 
 function parseAvailabilityDate(value) {
   const raw = String(value || '').trim()
@@ -252,6 +348,15 @@ export async function createOrderHistory(data) {
   if (!data?.id_order) throw new Error('ID order manquant pour l\'historique')
   if (!data?.id_order_state) throw new Error('ID order_state manquant pour l\'historique')
 
+  // Lire l'ancien statut AVANT de créer l'historique (sinon current_state est déjà mis à jour)
+  let prevState = null
+  try {
+    const before = await getOrderDetail(data.id_order)
+    prevState = Number(before?.current_state || 0)
+  } catch (e) {
+    prevState = null
+  }
+
   const historyObj = {
     id_employee: data.id_employee ?? 1,
     id_order_state: data.id_order_state,
@@ -271,14 +376,45 @@ export async function createOrderHistory(data) {
 
   const res = xmlToJson(xmlResponse)
 
-  // Si l'état passé est paiement accepté (2) ou livré (5), créer mouvements de sortie
   const state = Number(data.id_order_state)
-  // if (state === 2 || state === 5) {
+  console.log('[order_history] create', {
+    orderId: String(data.id_order),
+    prevState,
+    state
+  })
+
+  // Restaurer stock_available uniquement si la commande passe de Livré(5) à Annule(6)
+  if (isStockAvailableRestoreState(state) && Number(prevState) === 5) {
+    console.log('[stock_available] increment via order_history', {
+      orderId: String(data.id_order),
+      prevState,
+      state
+    })
+    try {
+      await incrementStockAvailableForOrder(data.id_order)
+    } catch (e) {
+      console.error('Erreur maj stock_available (annulation) après history:', e?.message || e)
+    }
+
+    try {
+      await createStockMovementsForOrderCancel(data.id_order)
+    } catch (e) {
+      console.error('Erreur création mouvements entrée après annulation:', e?.message || e)
+    }
+  }
+
+  // Créer des mouvements de sortie uniquement si l'état devient "Livré" (5)
+  if (state === 5 && Number(prevState) !== 5) {
+    console.log('[stock_mvt] create via order_history', {
+      orderId: String(data.id_order),
+      prevState,
+      state
+    })
     try {
       await createStockMovementsForOrder(data.id_order)
     } catch (e) {
       console.error('Erreur création mouvements après history:', e?.message || e)
-    // }
+    }
   }
 
   return res
@@ -289,14 +425,91 @@ async function createStockMovementsForOrder(orderId) {
   try {
     console.log(`Création mouvements de stock pour la commandeeeeeeeeee ${orderId}...`)
     const detail = await getOrderDetail(orderId)
+    // Sécurité: ne créer les mouvements que si la commande est bien en état "Livré" (5)
+    if (String(detail?.current_state || '') !== '5') {
+      console.log('Mouvements non créés: commande pas livrée (state != 5)', {
+        orderId: String(orderId),
+        current_state: String(detail?.current_state || '')
+      })
+      return
+    }
     const rows = detail?.orderRows || []
+    for (const row of rows) {
+      console.log('Processing row for movement creation...')
+        const id_product = String(row.product_id || row.id_product || '')
+        const id_product_attribute = String(row.product_attribute_id || row.id_product_attribute || '0')
+        const qty = Number(row.product_quantity || 0)
+        if (!id_product || !qty) continue
+
+        // find physical stock id
+        const phys = await getPhysicalStocks({ filters: { id_product, id_product_attribute } })
+        let stock = Array.isArray(phys) && phys.length ? phys[0] : null
+
+        if (!stock) {
+          try {
+            const created = await createStock({
+              id_product,
+              id_product_attribute,
+              physical_quantity: 0,
+              usable_quantity: 0,
+              price_te: row.unit_price_tax_excl || row.product_price || 0,
+              id_employee: 1
+            })
+            const createdId = created?.prestashop?.stock?.id
+            if (createdId) {
+              stock = { id: createdId }
+            }
+          } catch (e) {
+            console.error('Erreur création stock physique avant mouvement:', e?.message || e)
+          }
+        }
+
+        const id_stock = stock?.id
+        if (!id_stock) {
+          console.error('Stock physique introuvable pour mouvement:', {
+            id_product,
+            id_product_attribute
+          })
+          continue
+        }
+
+        const mvt = {
+          id_product,
+          id_product_attribute,
+          id_stock,
+          id_order: String(orderId),
+          price_te: row.unit_price_tax_excl || row.product_price || 0,
+          physical_quantity: qty,
+          id_employee: 1,
+          id_stock_mvt_reason: 2,
+          date_add: formatDateTime(new Date()),
+          sign: -1
+        }
+
+        try {
+          await createStockMvt(mvt)
+        } catch (e) {
+          console.error('Erreur création stock_mvt sortie:', e?.message || e)
+        }
+      }
+  } catch (e) {
+    console.error('Erreur lors de la création des mouvements pour la commande', e?.message || e)
+  }
+}
+
+async function createStockMovementsForOrderCancel(orderId) {
+  if (!orderId) return
+  try {
+    console.log(`Création mouvements de stock (annulation) pour la commande ${orderId}...`)
+    const detail = await getOrderDetail(orderId)
+    const rows = detail?.orderRows || []
+
     for (const row of rows) {
       const id_product = String(row.product_id || row.id_product || '')
       const id_product_attribute = String(row.product_attribute_id || row.id_product_attribute || '0')
       const qty = Number(row.product_quantity || 0)
       if (!id_product || !qty) continue
 
-      // find physical stock id
       const phys = await getPhysicalStocks({ filters: { id_product, id_product_attribute } })
       let stock = Array.isArray(phys) && phys.length ? phys[0] : null
 
@@ -315,13 +528,13 @@ async function createStockMovementsForOrder(orderId) {
             stock = { id: createdId }
           }
         } catch (e) {
-          console.error('Erreur création stock physique avant mouvement:', e?.message || e)
+          console.error('Erreur création stock physique avant mouvement annulation:', e?.message || e)
         }
       }
 
       const id_stock = stock?.id
       if (!id_stock) {
-        console.error('Stock physique introuvable pour mouvement:', {
+        console.error('Stock physique introuvable pour mouvement annulation:', {
           id_product,
           id_product_attribute
         })
@@ -336,29 +549,32 @@ async function createStockMovementsForOrder(orderId) {
         price_te: row.unit_price_tax_excl || row.product_price || 0,
         physical_quantity: qty,
         id_employee: 1,
-        id_stock_mvt_reason: 2,
+        id_stock_mvt_reason: 1,
         date_add: formatDateTime(new Date()),
-        sign: -1
+        sign: 1
       }
 
       try {
         await createStockMvt(mvt)
       } catch (e) {
-        console.error('Erreur création stock_mvt sortie:', e?.message || e)
+        console.error('Erreur création stock_mvt entrée (annulation):', e?.message || e)
       }
     }
   } catch (e) {
-    console.error('Erreur lors de la création des mouvements pour la commande', e?.message || e)
+    console.error('Erreur lors de la création des mouvements (annulation) pour la commande', e?.message || e)
   }
 }
 
 export async function createOrder(data) {
+  const preRequestedState = Number(data?.current_state ?? 0)
+  const skipStockCheck = data?.skipStockCheck === true
+
   // Vérifier les quantités disponibles pour chaque ligne du panier (cartRows)
   const rows = Array.isArray(data.cartRows) && data.cartRows.length
     ? data.cartRows
     : (data.id_cart ? (await getCartDetail(data.id_cart))?.cartRows || [] : [])
 
-  if (rows && rows.length) {
+  if (!skipStockCheck && rows && rows.length) {
     for (const row of rows) {
       const id_product = String(row.id_product || row.product_id || '')
       const id_product_attribute = String(row.id_product_attribute || row.product_attribute_id || '0')
@@ -391,7 +607,7 @@ export async function createOrder(data) {
         available = 0
       }
 
-      if (qtyRequested > available) {
+      if (qtyRequested > available && !isStockAvailableRestoreState(preRequestedState)) {
         throw new Error(`Stock insuffisant pour produit ${id_product} attr ${id_product_attribute} : demandé ${qtyRequested}, disponible ${available}`)
       }
     }
@@ -413,7 +629,7 @@ export async function createOrder(data) {
     total_products: data.total_products,
     total_products_wt: data.total_products_wt,
     conversion_rate: data.conversion_rate || 1,
-    current_state: 13
+    current_state: data.current_state ?? 13
   }
 
   const xmlRequest = jsonToXml({
@@ -432,11 +648,24 @@ export async function createOrder(data) {
   // créer mouvements si l'état demandé est paiement accepté (2) ou livré (5)
   const requestedState = Number(data.current_state || res?.prestashop?.order?.current_state || 0)
   const orderId = res?.prestashop?.order?.id
-  if ((requestedState === 2 || requestedState === 5) && orderId) {
-    try {
-      await createStockMovementsForOrder(orderId)
-    } catch (e) {
-      console.error('Erreur création mouvements après création commande:', e?.message || e)
+  console.log('Creating stock movements for order...', orderId, 'with requested state:', requestedState)
+
+  const skipSideEffects = data?.skipStockSideEffects === true
+  if (skipSideEffects) {
+    console.log('[order_create] skip stock side effects', {
+      orderId: String(orderId || ''),
+      requestedState
+    })
+  }
+
+  if (!skipSideEffects) {
+    if ((requestedState === 5) && orderId) {
+      try {
+        console.log('miditraaaaaaa Creating stock movements for order...', orderId, 'with requested state:', requestedState)
+        await createStockMovementsForOrder(orderId)
+      } catch (e) {
+        console.error('Erreur création mouvements après création commande:', e?.message || e)
+      }
     }
   }
 
@@ -606,6 +835,15 @@ export async function createOrderPayment(data) {
 export async function updateOrder(id, data) {
   if (id === undefined || id === null || id === '') throw new Error('ID order manquant pour la modification')
 
+  // Garder l'ancien statut pour éviter les doubles traitements (ex: Payé -> Livré)
+  let prevState = null
+  try {
+    const before = await getOrderDetail(id)
+    prevState = Number(before?.current_state || 0)
+  } catch (e) {
+    prevState = null
+  }
+
   const orderObj = {
     id: id,
     id_address_delivery: data.id_address_delivery,
@@ -639,9 +877,10 @@ export async function updateOrder(id, data) {
 
   const res = xmlToJson(xmlResponse)
 
-  // Si on met à jour la commande vers paiement accepté (2) ou livré (5), créer mouvements de sortie
   const newState = Number(data.current_state)
-  if ((newState === 2 || newState === 5)) {
+
+  // Si on met à jour la commande vers livré (5), créer mouvements de sortie
+  if (newState === 5 && Number(prevState) !== 5) {
     try {
       await createStockMovementsForOrder(id)
     } catch (e) {
@@ -650,4 +889,90 @@ export async function updateOrder(id, data) {
   }
 
   return res
+}
+
+async function incrementStockAvailableForOrder(orderId) {
+  if (!orderId) return
+  try {
+    const detail = await getOrderDetail(orderId)
+    const rows = detail?.orderRows || []
+
+    for (const row of rows) {
+      const id_product = String(row.product_id || row.id_product || '')
+      const id_product_attribute = String(row.product_attribute_id || row.id_product_attribute || '0')
+      const qty = Number(row.product_quantity || 0)
+      if (!id_product || !Number.isFinite(qty) || qty <= 0) continue
+
+      try {
+        const stocks = await getStockAvailables({
+          filters: { id_product, id_product_attribute },
+          display: 'full',
+          limit: 1
+        })
+        let stock = Array.isArray(stocks) && stocks.length ? stocks[0] : null
+        let stockId = stock?.id
+
+        if (!stockId) {
+          console.log(`Stock_available illlllllllll pour produit ${id_product} attr ${id_product_attribute}, création d'un stock_available vierge...`)
+          const created = await createStockAv({
+            id_product,
+            id_product_attribute,
+            quantity: 0,
+            depends_on_stock: 0,
+            out_of_stock: 2
+          })
+          stockId = created?.prestashop?.stock_available?.id
+          
+          if (!stockId) {
+            const again = await getStockAvailables({
+              filters: { id_product, id_product_attribute },
+              display: 'full',
+              limit: 1
+            })
+            stock = Array.isArray(again) && again.length ? again[0] : null
+            stockId = stock?.id
+          } else {
+            stock = {
+              id: String(stockId),
+              id_product,
+              id_product_attribute,
+              id_shop: '1',
+              id_shop_group: '1',
+              quantity: '0',
+              depends_on_stock: '0',
+              out_of_stock: '2',
+              location: ''
+            }
+          }
+        }
+
+        if (!stockId) continue
+
+        const currentQty = Number(stock?.quantity || 0)
+        const nextQty = Math.max(0, (Number.isFinite(currentQty) ? currentQty : 0) + qty)
+        console.log('[stock_available] increment', {
+          orderId: String(orderId),
+          id_product,
+          id_product_attribute,
+          qty,
+          currentQty,
+          nextQty
+        })
+        await updateStockAv(stockId, {
+          id_product,
+          id_product_attribute,
+          id_shop: stock?.id_shop || '1',
+          id_shop_group: stock?.id_shop_group || '1',
+          quantity: nextQty,
+          depends_on_stock: stock?.depends_on_stock !== undefined ? stock.depends_on_stock : 0,
+          out_of_stock: stock?.out_of_stock !== undefined ? stock.out_of_stock : 2,
+          location: stock?.location
+        })
+      } catch (e) {
+        console.error('Erreur maj stock_available (annulation) pour ligne commande:', e?.message || e)
+      }
+    }
+  } catch (e) {
+    console.error('Erreur maj stock_available (annulation) pour commande:', e?.message || e)
+  }
 }

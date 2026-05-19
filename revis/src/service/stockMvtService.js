@@ -1,5 +1,39 @@
 import { get, post, put, del, xmlToJson, jsonToXml, toText } from '../api/util.js'
-import { updateStockAv } from './stockAvailableService.js'
+import { getStockDetail, updateStock } from './stockService.js'
+
+async function applyMovementToPhysicalStock(data) {
+  const id_stock = data?.id_stock
+  const qty = Number(data?.physical_quantity || 0)
+  const sign = Number(data?.sign || 0)
+
+  if (!id_stock) return
+  if (!Number.isFinite(qty) || qty === 0) return
+  if (sign !== 1 && sign !== -1) return
+
+  const stock = await getStockDetail(id_stock)
+  if (!stock) return
+
+  const currentPhysical = Number(stock.physical_quantity || 0)
+  const currentUsable = Number(stock.usable_quantity || 0)
+
+  let nextPhysical = currentPhysical + sign * qty
+  let nextUsable = currentUsable + sign * qty
+
+  if (!Number.isFinite(nextPhysical)) nextPhysical = currentPhysical
+  if (!Number.isFinite(nextUsable)) nextUsable = currentUsable
+
+  if (nextPhysical < 0) nextPhysical = 0
+  if (nextUsable < 0) nextUsable = 0
+
+  await updateStock(id_stock, {
+    id_warehouse: stock.id_warehouse || 1,
+    id_product: stock.id_product,
+    id_product_attribute: stock.id_product_attribute || 0,
+    physical_quantity: nextPhysical,
+    usable_quantity: nextUsable,
+    price_te: stock.price_te ?? 0
+  })
+}
 
 function buildListQuery({ filters = {}, sort, limit, display = 'full' } = {}) {
   const query = { display }
@@ -143,20 +177,14 @@ export async function createStockMvt(data) {
   console.log('stock movement response:......', xmlResponse)
   const response = xmlToJson(xmlResponse)
 
-  const stockAvailableId = data.stockAvailableId ?? data.id_stock_available ?? data.stock_available_id
-  const stockAvailableQuantity = data.stockAvailableQuantity ?? data.stock_available_quantity
-  if (stockAvailableId !== undefined && stockAvailableId !== null && stockAvailableId !== '' && stockAvailableQuantity !== undefined && stockAvailableQuantity !== null) {
-    console.log('updateStockAv llllllllllllllllllllllllllllllll')
-    await updateStockAv(stockAvailableId, {
-      id_product: data.id_product,
-      id_product_attribute: data.id_product_attribute ?? 0,
-      quantity: stockAvailableQuantity,
-      depends_on_stock: data.depends_on_stock !== undefined ? data.depends_on_stock : 0,
-      out_of_stock: data.out_of_stock !== undefined ? data.out_of_stock : 2,
-      id_shop: data.id_shop,
-      id_shop_group: data.id_shop_group,
-      location: data.location
-    })
+  // Mettre à jour le stock physique (stocks) selon le mouvement
+  // IMPORTANT: certains appels (ex: après createStock) doivent éviter ce calcul pour ne pas doubler.
+  if (!data?.skipStockUpdate) {
+    try {
+      await applyMovementToPhysicalStock(data)
+    } catch (e) {
+      console.error('Erreur update stock physique après mouvement:', e?.message || e)
+    }
   }
 
   return response
